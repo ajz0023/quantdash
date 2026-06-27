@@ -418,16 +418,26 @@ async function loadSheetData() {
 
 function buildConfig(rows) {
   G.cfg = {};
-  rows.forEach(r => { if (r.Parameter) G.cfg[r.Parameter] = r.Value; });
+  // Only store rows that have both a Parameter and a Value (skip section headers)
+  rows.forEach(r => {
+    if (r.Parameter && r.Parameter.trim() && r.Value && r.Value.trim()) {
+      G.cfg[r.Parameter.trim()] = r.Value.trim();
+    }
+  });
   G.cfg.myStrategies = [];
   for (let i = 1; i <= 20; i++) {
-    const k = `Strategy${i}`, v = G.cfg[k];
+    const k = `Strategy${i}`;
+    const v = G.cfg[k];
     if (!v) break;
     G.cfg.myStrategies.push({
       key: k, name: v,
-      benchmark: G.cfg[`Benchmark_${k}`] || '',
-      currency: G.cfg[`Currency_${k}`] || 'USD'
+      benchmark: G.cfg[`Benchmark_${k}`] || G.cfg[`Benchmark_Strategy${i}`] || '',
+      currency: G.cfg[`Currency_${k}`] || G.cfg[`Currency_Strategy${i}`] || 'USD'
     });
+  }
+  // If no strategies found, log helpful error
+  if (!G.cfg.myStrategies.length) {
+    console.error('No strategies found in Config tab. Check Strategy1, Strategy2... rows exist with values.');
   }
   G.cfg.weights = {
     cagr: parseFloat(G.cfg.Weight_CAGR) || 0.4,
@@ -548,10 +558,16 @@ function rolling12(rets) {
 // OVERVIEW PAGE
 // ══════════════════════════════════════════
 function initUI() {
+  if (!G.cfg.myStrategies || !G.cfg.myStrategies.length) {
+    document.getElementById('kpiGrid').innerHTML = '<div class="loading" style="grid-column:1/-1">⚠ No strategies found in Config tab. Check Strategy1, Strategy2... rows exist with values.</div>';
+    return;
+  }
   const sel = document.getElementById('stratSel');
   sel.innerHTML = G.cfg.myStrategies.map((s, i) => `<option value="${i}">${s.name}</option>`).join('');
-  const def = G.cfg.myStrategies.findIndex(s => s.name === G.cfg.DefaultStrategy);
-  if (def >= 0) sel.value = def;
+  const defKey = G.cfg.DefaultStrategy || 'Strategy1';
+  let def = G.cfg.myStrategies.findIndex(s => s.key === defKey || s.name === defKey);
+  if (def < 0) def = 0;
+  sel.value = def;
   buildYearPills();
   buildInvFilter();
   renderOverview();
