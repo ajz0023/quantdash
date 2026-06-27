@@ -1,0 +1,1070 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Strategy Dashboard</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+:root {
+  --bg: #0d1117; --s1: #161b22; --s2: #1c2128; --s3: #21262d;
+  --border: rgba(255,255,255,0.08); --border2: rgba(255,255,255,0.15);
+  --text: #e6edf3; --muted: #7d8590; --dim: #484f58;
+  --accent: #4f8ef7; --accent2: #7c3aed;
+  --green: #3fb950; --red: #f85149; --amber: #d29922; --gold: #e3b341;
+  --font: -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+  --mono: 'SF Mono','Fira Code',monospace;
+  --radius: 8px; --nav-h: 52px; --bottom-h: 56px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--font);font-size:14px;overflow-x:hidden}
+
+/* ── NAV ── */
+.nav{position:fixed;top:0;left:0;right:0;height:var(--nav-h);background:var(--s1);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 16px;gap:12px;z-index:200}
+.nav-brand{font-size:15px;font-weight:600;letter-spacing:-.3px;white-space:nowrap}
+.nav-brand em{font-style:normal;color:var(--accent)}
+.nav-tabs{display:flex;gap:2px;flex:1;justify-content:center}
+.nav-tab{padding:6px 14px;border-radius:var(--radius);border:none;background:transparent;color:var(--muted);font-size:13px;cursor:pointer;font-family:var(--font);transition:all .15s;white-space:nowrap}
+.nav-tab:hover{color:var(--text);background:var(--s3)}
+.nav-tab.active{color:var(--text);background:var(--s3);font-weight:500}
+.nav-right{font-size:11px;color:var(--muted);white-space:nowrap}
+
+/* ── BOTTOM NAV (mobile) ── */
+.bottom-nav{display:none;position:fixed;bottom:0;left:0;right:0;height:var(--bottom-h);background:var(--s1);border-top:1px solid var(--border);z-index:200;flex-direction:row}
+.bottom-tab{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;border:none;background:transparent;color:var(--muted);font-size:10px;cursor:pointer;font-family:var(--font);padding:8px 4px}
+.bottom-tab svg{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:1.5}
+.bottom-tab.active{color:var(--accent)}
+
+/* ── PAGES ── */
+.pages{margin-top:var(--nav-h);min-height:calc(100vh - var(--nav-h))}
+.page{display:none;padding:16px;max-width:1360px;margin:0 auto}
+.page.active{display:block}
+
+/* ── SELECTORS ── */
+.selector-bar{background:var(--s1);border:1px solid var(--border);border-radius:10px;padding:12px 16px;margin-bottom:16px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.sel-label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;white-space:nowrap}
+select{background:var(--s2);border:1px solid var(--border2);color:var(--text);padding:6px 10px;border-radius:var(--radius);font-size:13px;font-family:var(--font);cursor:pointer;outline:none;min-width:120px}
+select:focus{border-color:var(--accent)}
+.meta-row{display:flex;gap:8px;margin-left:auto;flex-wrap:wrap}
+.meta-pill{background:var(--s2);border:1px solid var(--border);border-radius:var(--radius);padding:4px 10px;font-size:11px;color:var(--muted);white-space:nowrap}
+.meta-pill strong{color:var(--text);font-weight:500}
+
+/* ── KPI ── */
+.kpi-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px}
+.kpi-card{background:var(--s1);border:1px solid var(--border);border-radius:10px;padding:14px 16px;position:relative;overflow:hidden}
+.kpi-card::after{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:var(--accent);opacity:.6}
+.kpi-title{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px}
+.kpi-rows{display:flex;flex-direction:column;gap:6px}
+.kpi-row{display:flex;justify-content:space-between;align-items:center}
+.kpi-row-label{font-size:11px;color:var(--muted)}
+.kpi-val{font-size:15px;font-weight:600;font-family:var(--mono);letter-spacing:-.3px}
+.kpi-val.sm{font-size:13px}
+.pos{color:var(--green)}.neg{color:var(--red)}.neu{color:var(--muted)}
+
+/* ── CHARTS ── */
+.charts-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px}
+.chart-full{grid-column:1/-1}
+.chart-card{background:var(--s1);border:1px solid var(--border);border-radius:10px;padding:14px 16px}
+.chart-hdr{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px}
+.chart-title{font-size:13px;font-weight:500}
+.chart-legend{display:flex;gap:12px;font-size:11px;color:var(--muted)}
+.legend-dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:4px;vertical-align:middle}
+.zoom-pills{display:flex;gap:2px}
+.zpill{padding:2px 8px;border-radius:4px;border:1px solid var(--border);background:transparent;color:var(--muted);font-size:11px;cursor:pointer;font-family:var(--font)}
+.zpill.active{background:var(--s3);color:var(--text)}
+
+/* ── AB TABLE ── */
+.ab-wrap{background:var(--s1);border:1px solid var(--border);border-radius:10px;padding:14px 16px;margin-bottom:16px;overflow-x:auto}
+.ab-title{font-size:13px;font-weight:500;margin-bottom:12px}
+.ab-table{width:100%;border-collapse:collapse;font-size:12px;min-width:520px}
+.ab-table th{color:var(--muted);font-weight:500;font-size:11px;text-transform:uppercase;letter-spacing:.4px;padding:6px 10px;border-bottom:1px solid var(--border);text-align:right;white-space:nowrap}
+.ab-table th:first-child{text-align:left}
+.ab-table td{padding:7px 10px;border-bottom:1px solid var(--border);text-align:right;font-family:var(--mono);font-size:12px}
+.ab-table td:first-child{text-align:left;font-family:var(--font);color:var(--muted)}
+.ab-table tr:last-child td{border-bottom:none;font-weight:600;color:var(--text)}
+.ab-table tr:hover td{background:var(--s2)}
+.bar-cell{padding:7px 10px 7px 6px}
+.sym-bar{position:relative;width:100px;height:12px;display:flex;align-items:center}
+.sym-bar-line{position:absolute;left:50%;top:0;bottom:0;width:1px;background:var(--border2)}
+.sym-bar-fill{position:absolute;height:8px;border-radius:2px;top:2px}
+
+/* ── HEATMAP ── */
+.heatmap-controls{display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap;align-items:center}
+.year-pills{display:flex;gap:4px;flex-wrap:wrap}
+.ypill{padding:5px 12px;border-radius:var(--radius);border:1px solid var(--border);background:transparent;color:var(--muted);font-size:12px;cursor:pointer;font-family:var(--font);transition:all .15s}
+.ypill:hover{color:var(--text);background:var(--s3)}
+.ypill.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+.hm-wrap{background:var(--s1);border:1px solid var(--border);border-radius:10px;overflow:auto}
+.hm-table{border-collapse:collapse;font-size:12px;width:100%;min-width:700px}
+.hm-table th{background:var(--s2);color:var(--muted);font-weight:500;font-size:11px;padding:8px 10px;text-align:center;border-bottom:1px solid var(--border);white-space:nowrap;position:sticky;top:0;z-index:2;cursor:pointer;user-select:none}
+.hm-table th:hover{color:var(--text)}
+.hm-table th.sorted{color:var(--accent)}
+.hm-table th:nth-child(-n+3){text-align:left;position:sticky;z-index:3}
+.hm-table th:nth-child(1){left:0;min-width:110px}
+.hm-table th:nth-child(2){left:110px;min-width:160px}
+.hm-table th:nth-child(3){left:270px;min-width:90px}
+.hm-table td{padding:6px 10px;border-bottom:1px solid var(--border);text-align:center;white-space:nowrap;font-family:var(--mono)}
+.hm-table td:nth-child(-n+3){text-align:left;font-family:var(--font);position:sticky;background:var(--s1)}
+.hm-table td:nth-child(1){left:0;min-width:110px;color:var(--muted);font-size:11px}
+.hm-table td:nth-child(2){left:110px;min-width:160px;font-size:12px}
+.hm-table td:nth-child(3){left:270px;min-width:90px}
+.hm-table tr.mine-row td{background:rgba(79,142,247,.05)!important}
+.hm-table tr.mine-row td:nth-child(-n+3){background:rgba(79,142,247,.08)!important}
+.hm-table tr:hover td{filter:brightness(1.15)}
+.type-badge{display:inline-block;padding:2px 6px;border-radius:4px;font-size:10px;font-weight:500}
+.type-strat{background:rgba(79,142,247,.15);color:var(--accent)}
+.type-bm{background:rgba(214,153,34,.15);color:var(--amber)}
+.mine-badge{display:inline-block;padding:1px 5px;border-radius:3px;font-size:9px;background:rgba(79,142,247,.2);color:var(--accent);margin-left:4px;vertical-align:middle}
+
+/* ── RANKING ── */
+.rank-controls{display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap;align-items:center}
+.period-pills{display:flex;gap:3px;flex-wrap:wrap}
+.ppill{padding:5px 12px;border-radius:var(--radius);border:1px solid var(--border);background:transparent;color:var(--muted);font-size:12px;cursor:pointer;font-family:var(--font);transition:all .15s}
+.ppill:hover{color:var(--text);background:var(--s3)}
+.ppill.active{background:var(--s3);color:var(--text);border-color:var(--border2)}
+.rank-wrap{background:var(--s1);border:1px solid var(--border);border-radius:10px;overflow:auto}
+.rank-table{width:100%;border-collapse:collapse;font-size:12px;min-width:700px}
+.rank-table th{background:var(--s2);color:var(--muted);font-weight:500;font-size:11px;text-transform:uppercase;letter-spacing:.3px;padding:9px 12px;border-bottom:1px solid var(--border);text-align:right;white-space:nowrap;cursor:pointer;user-select:none}
+.rank-table th:hover{color:var(--text)}
+.rank-table th.sorted{color:var(--accent)}
+.rank-table th:nth-child(-n+3){text-align:left}
+.rank-table td{padding:9px 12px;border-bottom:1px solid var(--border);text-align:right;font-family:var(--mono)}
+.rank-table td:nth-child(-n+3){text-align:left;font-family:var(--font)}
+.rank-table tr:last-child td{border-bottom:none}
+.rank-table tr:hover td{background:var(--s2)}
+.rank-table tr.mine-row td{background:rgba(79,142,247,.06)}
+.rank-table tr.mine-row:hover td{background:rgba(79,142,247,.1)}
+.rnum{color:var(--muted);font-size:11px;font-weight:500}
+.r1{color:var(--gold);font-weight:700}.r2{color:#9ca3af;font-weight:700}.r3{color:#b45309;font-weight:700}
+.score-val{color:var(--accent);font-weight:600}
+.sort-arrow{color:var(--accent);margin-left:3px}
+
+/* ── MONTHLY HEATMAP ── */
+.monthly-wrap{background:var(--s1);border:1px solid var(--border);border-radius:10px;padding:14px 16px;margin-bottom:16px;overflow-x:auto}
+.monthly-title{font-size:13px;font-weight:500;margin-bottom:12px}
+.monthly-tbl{border-collapse:collapse;font-size:12px;min-width:600px}
+.monthly-tbl th{color:var(--muted);font-weight:500;font-size:11px;padding:4px 8px;border-bottom:1px solid var(--border);text-align:center}
+.monthly-tbl th:first-child{text-align:left}
+.monthly-tbl td{padding:5px 8px;text-align:center;font-family:var(--mono);font-size:11px}
+.monthly-tbl td:first-child{text-align:left;font-family:var(--font);color:var(--muted);padding-right:12px}
+.monthly-tbl tr:hover td{filter:brightness(1.2)}
+
+/* ── SETUP ── */
+.setup-card{background:var(--s1);border:1px solid var(--border);border-radius:10px;padding:20px;margin-bottom:16px}
+.setup-card h3{font-size:14px;font-weight:500;margin-bottom:10px}
+.setup-card p{font-size:13px;color:var(--muted);line-height:1.65;margin-bottom:8px}
+.setup-card code{background:var(--s3);border:1px solid var(--border);border-radius:4px;padding:2px 6px;font-family:var(--mono);font-size:12px;color:var(--accent)}
+.input-row{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}
+.input-row input{flex:1;min-width:200px;background:var(--s2);border:1px solid var(--border2);color:var(--text);padding:8px 12px;border-radius:var(--radius);font-size:13px;font-family:var(--font);outline:none}
+.input-row input:focus{border-color:var(--accent)}
+.btn{background:var(--accent);color:#fff;border:none;padding:8px 18px;border-radius:var(--radius);font-size:13px;font-weight:500;cursor:pointer;font-family:var(--font);white-space:nowrap}
+.btn:hover{opacity:.85}
+.btn-ghost{background:var(--s3);color:var(--text);border:1px solid var(--border2)}
+.status-msg{font-size:12px;color:var(--green);margin-top:8px}
+.tbl-guide{width:100%;border-collapse:collapse;font-size:12px;margin-top:10px}
+.tbl-guide th{background:var(--s2);color:var(--muted);padding:6px 10px;text-align:left;border-bottom:1px solid var(--border);font-size:11px;font-weight:500}
+.tbl-guide td{padding:6px 10px;border-bottom:1px solid var(--border);color:var(--muted);vertical-align:top}
+.tbl-guide td:first-child{color:var(--text);font-weight:500;white-space:nowrap}
+.tbl-guide tr:last-child td{border-bottom:none}
+
+/* ── LOADING ── */
+.loading{text-align:center;padding:60px 20px;color:var(--muted)}
+.loading-dots span{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--accent);margin:0 2px;animation:ldot 1.2s ease infinite}
+.loading-dots span:nth-child(2){animation-delay:.2s}
+.loading-dots span:nth-child(3){animation-delay:.4s}
+@keyframes ldot{0%,100%{opacity:.2}50%{opacity:1}}
+
+/* ── MOBILE ── */
+@media(max-width:768px){
+  .nav-tabs{display:none}
+  .bottom-nav{display:flex}
+  .pages{margin-top:var(--nav-h);padding-bottom:var(--bottom-h)}
+  .kpi-grid{grid-template-columns:1fr}
+  .charts-grid{grid-template-columns:1fr}
+  .chart-full{grid-column:1}
+  .selector-bar{gap:8px}
+  .meta-row{margin-left:0;width:100%}
+  .page{padding:12px}
+  .nav{padding:0 12px}
+  .nav-brand{font-size:14px}
+  .nav-right{display:none}
+  .hm-table td:nth-child(1){min-width:90px}
+  .hm-table td:nth-child(2){min-width:130px}
+  .hm-table td:nth-child(3){left:220px;min-width:80px}
+  .hm-table th:nth-child(1){min-width:90px}
+  .hm-table th:nth-child(2){left:90px;min-width:130px}
+  .hm-table th:nth-child(3){left:220px;min-width:80px}
+}
+</style>
+</head>
+<body>
+
+<nav class="nav">
+  <div class="nav-brand">⬡ <em>Quant</em>Dash</div>
+  <div class="nav-tabs">
+    <button class="nav-tab active" onclick="showPage('overview',this)">Strategy overview</button>
+    <button class="nav-tab" onclick="showPage('heatmap',this)">Heatmap</button>
+    <button class="nav-tab" onclick="showPage('ranking',this)">Ranking</button>
+    <button class="nav-tab" onclick="showPage('setup',this)">Setup</button>
+  </div>
+  <div class="nav-right" id="lastUpd">—</div>
+</nav>
+
+<nav class="bottom-nav">
+  <button class="bottom-tab active" onclick="showPage('overview',this,true)">
+    <svg viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>Overview
+  </button>
+  <button class="bottom-tab" onclick="showPage('heatmap',this,true)">
+    <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>Heatmap
+  </button>
+  <button class="bottom-tab" onclick="showPage('ranking',this,true)">
+    <svg viewBox="0 0 24 24"><line x1="12" y1="20" x2="12" y2="10"/><line x1="18" y1="20" x2="18" y2="4"/><line x1="6" y1="20" x2="6" y2="16"/></svg>Ranking
+  </button>
+  <button class="bottom-tab" onclick="showPage('setup',this,true)">
+    <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>Setup
+  </button>
+</nav>
+
+<div class="pages">
+
+<!-- ═══ OVERVIEW ═══ -->
+<div class="page active" id="page-overview">
+  <div class="selector-bar">
+    <span class="sel-label">Strategy</span>
+    <select id="stratSel" onchange="renderOverview()"></select>
+    <span class="sel-label">Period</span>
+    <select id="periodSel" onchange="renderOverview()">
+      <option value="ytd">YTD</option><option value="1y" selected>1 Year</option>
+      <option value="2y">2 Years</option><option value="3y">3 Years</option>
+      <option value="5y">5 Years</option><option value="all">All</option>
+    </select>
+    <div class="meta-row" id="stratMeta"></div>
+  </div>
+  <div class="kpi-grid" id="kpiGrid"><div class="loading"><div class="loading-dots"><span></span><span></span><span></span></div><br>Load demo data or connect your sheet</div></div>
+  <div class="charts-grid">
+    <div class="chart-card chart-full">
+      <div class="chart-hdr">
+        <span class="chart-title">Equity curve — growth of $100</span>
+        <div style="display:flex;gap:8px;align-items:center">
+          <div class="chart-legend"><span><span class="legend-dot" style="background:var(--accent)"></span>Strategy</span><span><span class="legend-dot" style="background:var(--accent2)"></span>Benchmark</span></div>
+          <div class="zoom-pills" id="eqZoom">
+            <button class="zpill" onclick="setEqZoom('ytd',this)">YTD</button>
+            <button class="zpill active" onclick="setEqZoom('1y',this)">1Y</button>
+            <button class="zpill" onclick="setEqZoom('2y',this)">2Y</button>
+            <button class="zpill" onclick="setEqZoom('3y',this)">3Y</button>
+            <button class="zpill" onclick="setEqZoom('5y',this)">5Y</button>
+            <button class="zpill" onclick="setEqZoom('all',this)">All</button>
+          </div>
+        </div>
+      </div>
+      <canvas id="eqChart" height="200"></canvas>
+    </div>
+    <div class="chart-card">
+      <div class="chart-hdr"><span class="chart-title">Monthly returns</span><div class="chart-legend"><span><span class="legend-dot" style="background:var(--accent)"></span>Strategy</span><span><span class="legend-dot" style="background:var(--accent2)"></span>Benchmark</span></div></div>
+      <canvas id="monthChart" height="200"></canvas>
+    </div>
+    <div class="chart-card">
+      <div class="chart-hdr"><span class="chart-title">Drawdown</span><div class="chart-legend"><span><span class="legend-dot" style="background:var(--red)"></span>Strategy</span><span><span class="legend-dot" style="background:var(--accent2)"></span>Benchmark</span></div></div>
+      <canvas id="ddChart" height="200"></canvas>
+    </div>
+    <div class="chart-card chart-full">
+      <div class="chart-hdr"><span class="chart-title">Rolling 12-month return</span><div class="chart-legend"><span><span class="legend-dot" style="background:var(--accent)"></span>Strategy</span><span><span class="legend-dot" style="background:var(--accent2)"></span>Benchmark</span></div></div>
+      <canvas id="rollChart" height="160"></canvas>
+    </div>
+  </div>
+  <div class="ab-wrap">
+    <div class="ab-title">Actual vs backtest — monthly returns</div>
+    <div id="abTableWrap"></div>
+  </div>
+  <div class="monthly-wrap">
+    <div class="monthly-title">Monthly returns heatmap — full history</div>
+    <div id="monthlyHM"></div>
+  </div>
+</div>
+
+<!-- ═══ HEATMAP ═══ -->
+<div class="page" id="page-heatmap">
+  <div class="heatmap-controls">
+    <div class="year-pills" id="yearPills"></div>
+    <select id="hmInvFilter" onchange="renderHeatmap()" style="min-width:140px"></select>
+    <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);cursor:pointer">
+      <input type="checkbox" id="hmMineOnly" onchange="renderHeatmap()"> My strategies only
+    </label>
+  </div>
+  <div class="hm-wrap" id="hmWrap"><div class="loading"><div class="loading-dots"><span></span><span></span><span></span></div></div></div>
+</div>
+
+<!-- ═══ RANKING ═══ -->
+<div class="page" id="page-ranking">
+  <div class="rank-controls">
+    <div class="period-pills" id="rankPeriodPills">
+      <button class="ppill active" onclick="setRankPeriod('ytd',this)">YTD</button>
+      <button class="ppill" onclick="setRankPeriod('1y',this)">1Y</button>
+      <button class="ppill" onclick="setRankPeriod('3y',this)">3Y</button>
+      <button class="ppill" onclick="setRankPeriod('5y',this)">5Y</button>
+      <button class="ppill" onclick="setRankPeriod('all',this)">All</button>
+    </div>
+    <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);cursor:pointer;margin-left:8px">
+      <input type="checkbox" id="rankMineOnly" onchange="renderRanking()"> My strategies only
+    </label>
+  </div>
+  <div class="rank-wrap" id="rankWrap"><div class="loading"><div class="loading-dots"><span></span><span></span><span></span></div></div></div>
+</div>
+
+<!-- ═══ SETUP ═══ -->
+<div class="page" id="page-setup">
+  <div class="setup-card">
+    <h3>Connect your Google Sheet</h3>
+    <p>Find your Sheet ID in the URL:<br><code>docs.google.com/spreadsheets/d/<strong>SHEET_ID</strong>/edit</code></p>
+    <p>Then publish it: <strong style="color:var(--text)">File → Share → Publish to web → Entire document → Publish</strong></p>
+    <div class="input-row">
+      <input type="text" id="sheetIdIn" placeholder="Paste Sheet ID here…">
+      <button class="btn" onclick="connectSheet()">Connect</button>
+      <button class="btn btn-ghost" onclick="loadDemo()">Load demo data</button>
+    </div>
+    <div class="status-msg" id="setupStatus"></div>
+  </div>
+  <div class="setup-card">
+    <h3>Required sheet structure — 6 tabs</h3>
+    <table class="tbl-guide">
+      <thead><tr><th>Tab name</th><th>Key columns</th></tr></thead>
+      <tbody>
+        <tr><td>Config</td><td>Parameter | Value — all dashboard settings, strategy names, benchmarks, weights</td></tr>
+        <tr><td>Returns</td><td>Strategy | Investor | IsMine | Currency | Benchmark | Jan-2018 | Feb-2018 | … (% as decimals)</td></tr>
+        <tr><td>Backtest_Returns</td><td>Strategy | Currency | Benchmark | Jan-2010 | … (your strategies only)</td></tr>
+        <tr><td>Benchmarks</td><td>Benchmark | Jan-2010 | … (% as decimals)</td></tr>
+        <tr><td>Backtest</td><td>Strategy | Investor | IsMine | Currency | Benchmark | InceptionDate | CAGR | Sharpe | MaxDD | AnnVol</td></tr>
+        <tr><td>FX</td><td>Month | AUDUSD | INRUSD</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+</div><!-- /pages -->
+
+<script>
+// ══════════════════════════════════════════
+// STATE
+// ══════════════════════════════════════════
+const G = {
+  sheetId: localStorage.getItem('qdSheetId') || '',
+  cfg: {}, data: null,
+  charts: {},
+  eqZoom: '1y',
+  rankPeriod: 'ytd',
+  rankSort: { col: 'score', dir: -1 },
+  hmSort: { col: 'investor', dir: 1 },
+  hmYear: 'all',
+};
+
+// ── NAV ──
+function showPage(id, btn, isMobile) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll(isMobile ? '.bottom-tab' : '.nav-tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('page-' + id).classList.add('active');
+  btn.classList.add('active');
+  if (id === 'heatmap' && G.data) renderHeatmap();
+  if (id === 'ranking' && G.data) renderRanking();
+}
+
+// ══════════════════════════════════════════
+// DATA LOADING
+// ══════════════════════════════════════════
+function csvUrl(tab) {
+  return `https://docs.google.com/spreadsheets/d/${G.sheetId}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(tab)}`;
+}
+
+function parseCSV(text) {
+  const rows = []; let cur = '', inQ = false, row = [];
+  for (let i = 0; i <= text.length; i++) {
+    const c = i < text.length ? text[i] : '\n';
+    if (c === '"') { inQ = !inQ; }
+    else if (c === ',' && !inQ) { row.push(cur.trim().replace(/^"|"$/g, '')); cur = ''; }
+    else if (c === '\n' && !inQ) { row.push(cur.trim().replace(/^"|"$/g, '')); if (row.some(Boolean)) rows.push(row); row = []; cur = ''; }
+    else cur += c;
+  }
+  return rows;
+}
+
+function toObj(rows) {
+  const hdrs = rows[0]; return rows.slice(1).filter(r => r.some(Boolean)).map(r => {
+    const o = {}; hdrs.forEach((h, i) => o[h] = r[i] || ''); return o;
+  });
+}
+
+async function fetchTab(tab) {
+  const res = await fetch(csvUrl(tab));
+  if (!res.ok) throw new Error(`Cannot read tab "${tab}"`);
+  return toObj(parseCSV(await res.text()));
+}
+
+async function loadSheetData() {
+  try {
+    document.getElementById('setupStatus').textContent = 'Connecting…';
+    const [cfgRaw, retRaw, btRetRaw, bmRaw, btRaw, fxRaw] = await Promise.all([
+      fetchTab('Config'), fetchTab('Returns'), fetchTab('Backtest_Returns'),
+      fetchTab('Benchmarks'), fetchTab('Backtest'), fetchTab('FX')
+    ]);
+    buildConfig(cfgRaw);
+    G.data = buildData(retRaw, btRetRaw, bmRaw, btRaw, fxRaw);
+    document.getElementById('lastUpd').textContent = 'Updated ' + new Date().toLocaleTimeString();
+    document.getElementById('setupStatus').textContent = '✓ Connected';
+    initUI();
+  } catch(e) {
+    document.getElementById('setupStatus').textContent = '✗ ' + e.message;
+    document.getElementById('kpiGrid').innerHTML = `<div class="loading" style="grid-column:1/-1">⚠ ${e.message}<br><small>Check Sheet ID and that the sheet is published to web.</small></div>`;
+  }
+}
+
+function buildConfig(rows) {
+  G.cfg = {};
+  rows.forEach(r => { if (r.Parameter) G.cfg[r.Parameter] = r.Value; });
+  G.cfg.myStrategies = [];
+  for (let i = 1; i <= 20; i++) {
+    const k = `Strategy${i}`, v = G.cfg[k];
+    if (!v) break;
+    G.cfg.myStrategies.push({
+      key: k, name: v,
+      benchmark: G.cfg[`Benchmark_${k}`] || '',
+      currency: G.cfg[`Currency_${k}`] || 'USD'
+    });
+  }
+  G.cfg.weights = {
+    cagr: parseFloat(G.cfg.Weight_CAGR) || 0.4,
+    sharpe: parseFloat(G.cfg.Weight_Sharpe) || 0.3,
+    maxdd: parseFloat(G.cfg.Weight_MaxDD) || 0.2,
+    vol: parseFloat(G.cfg.Weight_Vol) || 0.1,
+  };
+  // normalise weights
+  const wSum = Object.values(G.cfg.weights).reduce((a, b) => a + b, 0);
+  Object.keys(G.cfg.weights).forEach(k => G.cfg.weights[k] /= wSum);
+}
+
+function getMonthCols(obj) {
+  return Object.entries(obj)
+    .filter(([k]) => /^[A-Za-z]{3}-\d{4}$/.test(k))
+    .map(([k, v]) => ({ month: k, val: v === '' ? null : parseFloat(v) }));
+}
+
+function buildData(retRaw, btRetRaw, bmRaw, btRaw, fxRaw) {
+  const fxMap = {};
+  fxRaw.forEach(r => { fxMap[r.Month] = { AUDUSD: parseFloat(r.AUDUSD) || 1, INRUSD: parseFloat(r.INRUSD) || 1 }; });
+
+  function toUSD(val, ccy, month) {
+    if (val === null) return null;
+    const fx = fxMap[month] || {};
+    if (ccy === 'AUD') return val * (fx.AUDUSD || 1);
+    if (ccy === 'INR') return val * (fx.INRUSD || 1);
+    return val;
+  }
+
+  const stratMap = {};
+  retRaw.forEach(r => {
+    const mCols = getMonthCols(r);
+    const live = mCols.filter(m => m.val !== null);
+    stratMap[r.Strategy] = {
+      name: r.Strategy, investor: r.Investor,
+      isMine: r.IsMine === 'TRUE' || r.IsMine === 'true',
+      currency: r.Currency, benchmark: r.Benchmark,
+      months: mCols.map(m => ({ month: m.month, val: m.val, valUSD: toUSD(m.val, r.Currency, m.month) })),
+      liveCount: live.length,
+      inception: live.length ? live[0].month : '—'
+    };
+  });
+
+  const btRetMap = {};
+  btRetRaw.forEach(r => {
+    btRetMap[r.Strategy] = getMonthCols(r).filter(m => m.val !== null);
+  });
+
+  const bmMap = {};
+  bmRaw.forEach(r => { bmMap[r.Benchmark] = getMonthCols(r).map(m => ({ month: m.month, val: m.val })); });
+
+  const btMap = {};
+  btRaw.forEach(r => {
+    btMap[r.Strategy] = {
+      cagr: parseFloat(r.CAGR) || null, sharpe: parseFloat(r.Sharpe) || null,
+      maxdd: parseFloat(r.MaxDD) || null, annvol: parseFloat(r.AnnVol) || null,
+      inception: r.InceptionDate || ''
+    };
+  });
+
+  return { stratMap, btRetMap, bmMap, btMap, fxMap };
+}
+
+// ══════════════════════════════════════════
+// CALCULATIONS
+// ══════════════════════════════════════════
+function sliceByPeriod(rets, period) {
+  if (!rets || !rets.length) return [];
+  const now = new Date(); const monthsBack = { ytd: now.getMonth()+1, '1y':12,'2y':24,'3y':36,'5y':60,'all':9999 };
+  const n = monthsBack[period] || 9999;
+  return rets.slice(-n);
+}
+
+function calcMetrics(rets) {
+  const valid = rets.filter(r => r !== null && !isNaN(r));
+  if (!valid.length) return {};
+  const n = valid.length;
+  const total = valid.reduce((a, r) => a * (1 + r), 1) - 1;
+  const avg = valid.reduce((a, r) => a + r, 0) / n;
+  const variance = valid.reduce((a, r) => a + (r - avg) ** 2, 0) / n;
+  const vol = Math.sqrt(variance * 12);
+  const cagr = Math.pow(valid.reduce((a, r) => a * (1 + r), 1), 12 / n) - 1;
+  const rf = parseFloat(G.cfg.RiskFreeRate) || 0.04;
+  const sharpe = vol > 0 ? (cagr - rf) / vol : 0;
+  let peak = 1, eq = 1, maxdd = 0, curPeak = 1, curDD = 0;
+  for (const r of valid) { eq *= (1 + r); if (eq > peak) peak = eq; const dd = (eq - peak) / peak; if (dd < maxdd) maxdd = dd; }
+  let eq2 = 1; for (const r of valid) { eq2 *= (1 + r); if (eq2 > curPeak) curPeak = eq2; curDD = (eq2 - curPeak) / curPeak; }
+  const wins = valid.filter(r => r > 0).length;
+  return { total, cagr, vol, sharpe, maxdd, curDD, wins, winRate: wins / n, n };
+}
+
+function pct(v, dec=1, sign=true) {
+  if (v === null || v === undefined || isNaN(v)) return '—';
+  return (sign && v > 0 ? '+' : '') + (v * 100).toFixed(dec) + '%';
+}
+
+function cls(v) { return v > 0 ? 'pos' : v < 0 ? 'neg' : 'neu'; }
+
+function calcEquity(rets) {
+  let eq = 100; return rets.map(r => { if (r !== null) eq *= (1 + r); return parseFloat(eq.toFixed(2)); });
+}
+
+function calcDrawdown(rets) {
+  let eq = 1, peak = 1; return rets.map(r => { if (r !== null) { eq *= (1 + r); if (eq > peak) peak = eq; } return parseFloat(((eq - peak) / peak * 100).toFixed(2)); });
+}
+
+function rolling12(rets) {
+  const res = new Array(rets.length).fill(null);
+  for (let i = 11; i < rets.length; i++) {
+    const s = rets.slice(i - 11, i + 1).filter(r => r !== null);
+    if (s.length === 12) res[i] = parseFloat(((s.reduce((a, r) => a * (1 + r), 1) - 1) * 100).toFixed(2));
+  }
+  return res;
+}
+
+// ══════════════════════════════════════════
+// OVERVIEW PAGE
+// ══════════════════════════════════════════
+function initUI() {
+  const sel = document.getElementById('stratSel');
+  sel.innerHTML = G.cfg.myStrategies.map((s, i) => `<option value="${i}">${s.name}</option>`).join('');
+  const def = G.cfg.myStrategies.findIndex(s => s.name === G.cfg.DefaultStrategy);
+  if (def >= 0) sel.value = def;
+  buildYearPills();
+  buildInvFilter();
+  renderOverview();
+  renderHeatmap();
+  renderRanking();
+}
+
+function renderOverview() {
+  if (!G.data) return;
+  const idx = parseInt(document.getElementById('stratSel').value) || 0;
+  const s = G.cfg.myStrategies[idx];
+  const period = document.getElementById('periodSel').value;
+  const sd = G.data.stratMap[s.name];
+  const bt = G.data.btMap[s.name] || {};
+  const btRets = G.data.btRetMap[s.name] || [];
+
+  // meta
+  document.getElementById('stratMeta').innerHTML = `
+    <div class="meta-pill">Benchmark: <strong>${s.benchmark}</strong></div>
+    <div class="meta-pill">Currency: <strong>${s.currency}</strong></div>
+    <div class="meta-pill">Inception: <strong>${sd ? sd.inception : '—'}</strong></div>
+    <div class="meta-pill">Live months: <strong>${sd ? sd.liveCount : '—'}</strong></div>`;
+
+  const liveAll = sd ? sd.months.filter(m => m.val !== null) : [];
+  const liveSlice = sliceByPeriod(liveAll, period);
+  const liveRets = liveSlice.map(m => m.val);
+  const liveMonths = liveSlice.map(m => m.month);
+  const bmAll = s.benchmark ? (G.data.bmMap[s.benchmark] || []) : [];
+  const bmRets = liveMonths.map(m => { const b = bmAll.find(x => x.month === m); return b ? b.val : 0; });
+
+  const lm = calcMetrics(liveRets);
+  const bm = calcMetrics(bmRets);
+
+  // KPI
+  function kpiCard(title, liveVal, btVal, bmVal, liveLabel, btLabel, bmLabel, invert=false) {
+    const fmtV = (v, l) => v !== null && v !== undefined && !isNaN(v)
+      ? `<span class="${cls(invert ? -v : v)} kpi-val sm">${l}</span>` : `<span class="neu kpi-val sm">—</span>`;
+    return `<div class="kpi-card"><div class="kpi-title">${title}</div><div class="kpi-rows">
+      <div class="kpi-row"><span class="kpi-row-label">Live</span>${fmtV(liveVal, liveLabel)}</div>
+      <div class="kpi-row"><span class="kpi-row-label">Backtest</span>${fmtV(btVal, btLabel)}</div>
+      <div class="kpi-row"><span class="kpi-row-label">Benchmark</span>${fmtV(bmVal, bmLabel)}</div>
+    </div></div>`;
+  }
+
+  document.getElementById('kpiGrid').innerHTML =
+    kpiCard('CAGR', lm.cagr, bt.cagr ? bt.cagr/100 : null, bm.cagr, pct(lm.cagr), bt.cagr ? bt.cagr.toFixed(1)+'%' : '—', pct(bm.cagr)) +
+    kpiCard('Max drawdown', lm.maxdd, bt.maxdd ? bt.maxdd/100 : null, bm.maxdd, pct(lm.maxdd,1,false), bt.maxdd ? bt.maxdd.toFixed(1)+'%' : '—', pct(bm.maxdd,1,false), true) +
+    kpiCard('Current drawdown', lm.curDD, null, bm.curDD, pct(lm.curDD,1,false), '—', pct(bm.curDD,1,false), true);
+
+  // Charts
+  const eq = calcEquity(liveRets), beq = calcEquity(bmRets);
+  const dd = calcDrawdown(liveRets), bdd = calcDrawdown(bmRets);
+  const roll = rolling12(liveRets), broll = rolling12(bmRets);
+
+  function mkChart(id, type, labels, datasets, yPct=true) {
+    if (G.charts[id]) G.charts[id].destroy();
+    G.charts[id] = new Chart(document.getElementById(id), {
+      type, data: { labels, datasets },
+      options: {
+        responsive: true, maintainAspectRatio: false, animation: { duration: 300 },
+        plugins: { legend: { display: false }, tooltip: { mode:'index', intersect:false, backgroundColor:'#1c2128', borderColor:'rgba(255,255,255,.1)', borderWidth:1, titleColor:'#7d8590', bodyColor:'#e6edf3', padding:10 } },
+        scales: {
+          x: { grid: { color:'rgba(255,255,255,.04)' }, ticks: { color:'#7d8590', font:{size:10}, maxTicksLimit:10 } },
+          y: { grid: { color:'rgba(255,255,255,.04)' }, ticks: { color:'#7d8590', font:{size:10}, callback: v => yPct ? v+'%' : v }, position:'right' }
+        }, interaction: { mode:'index', intersect:false }
+      }
+    });
+  }
+
+  // Equity zoom
+  const eqZoomed = sliceByPeriod(liveAll, G.eqZoom);
+  const eqZMonths = eqZoomed.map(m => m.month);
+  const eqZRets = eqZoomed.map(m => m.val);
+  const eqZBm = eqZMonths.map(m => { const b = bmAll.find(x => x.month === m); return b ? b.val : 0; });
+  mkChart('eqChart','line', eqZMonths, [
+    {label:'Strategy',data:calcEquity(eqZRets),borderColor:'#4f8ef7',backgroundColor:'rgba(79,142,247,.06)',borderWidth:2,pointRadius:0,fill:true,tension:.3},
+    {label:'Benchmark',data:calcEquity(eqZBm),borderColor:'#7c3aed',backgroundColor:'rgba(124,58,237,.03)',borderWidth:1.5,pointRadius:0,fill:true,tension:.3,borderDash:[4,3]},
+  ], false);
+
+  mkChart('monthChart','bar', liveMonths, [
+    {label:'Strategy',data:liveRets.map(r=>parseFloat((r*100).toFixed(2))),backgroundColor:liveRets.map(r=>r>=0?'rgba(63,185,80,.7)':'rgba(248,81,73,.7)'),borderRadius:2,barPercentage:.6},
+    {label:'Benchmark',data:bmRets.map(r=>parseFloat((r*100).toFixed(2))),type:'line',borderColor:'#7c3aed',borderWidth:1.5,pointRadius:0,tension:.2},
+  ]);
+
+  mkChart('ddChart','line', liveMonths, [
+    {label:'Strategy',data:dd,borderColor:'#f85149',backgroundColor:'rgba(248,81,73,.08)',borderWidth:1.5,pointRadius:0,fill:true,tension:.2},
+    {label:'Benchmark',data:bdd,borderColor:'#7c3aed',backgroundColor:'rgba(124,58,237,.04)',borderWidth:1.5,pointRadius:0,fill:true,tension:.2,borderDash:[4,3]},
+  ]);
+
+  mkChart('rollChart','line', liveMonths, [
+    {label:'Strategy',data:roll,borderColor:'#4f8ef7',backgroundColor:'rgba(79,142,247,.06)',borderWidth:2,pointRadius:0,fill:true,tension:.3},
+    {label:'Benchmark',data:broll,borderColor:'#7c3aed',borderWidth:1.5,pointRadius:0,tension:.3,borderDash:[4,3]},
+  ]);
+
+  // AB Table
+  renderABTable(liveSlice, btRets, liveMonths);
+  // Heatmap (full history)
+  renderMonthlyHeatmap(sd);
+}
+
+function setEqZoom(z, btn) {
+  G.eqZoom = z;
+  document.querySelectorAll('#eqZoom .zpill').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderOverview();
+}
+
+function renderABTable(liveSlice, btRets, months) {
+  if (!liveSlice.length && !btRets.length) { document.getElementById('abTableWrap').innerHTML = '<div style="color:var(--muted);font-size:12px;padding:8px">No backtest data available</div>'; return; }
+  const reversed = [...liveSlice].reverse();
+  const maxAbs = Math.max(...liveSlice.map((m, i) => { const bt = btRets[btRets.length - liveSlice.length + i]; const d = m.val !== null && bt ? Math.abs(m.val - bt.val) : 0; return d; }), 0.001);
+
+  let html = `<table class="ab-table"><thead><tr><th>Month</th><th>Actual</th><th>Backtest</th><th>Difference</th><th style="min-width:120px"></th></tr></thead><tbody>`;
+  let sumAct = 1, sumBt = 1;
+  liveSlice.forEach((m, i) => { if (m.val !== null) sumAct *= (1 + m.val); const bt = btRets[btRets.length - liveSlice.length + i]; if (bt) sumBt *= (1 + bt.val); });
+  const totalDiff = sumAct - sumBt;
+
+  reversed.forEach((m, ri) => {
+    const origIdx = liveSlice.length - 1 - ri;
+    const btM = btRets[btRets.length - liveSlice.length + origIdx];
+    const act = m.val; const btv = btM ? btM.val : null;
+    const diff = act !== null && btv !== null ? act - btv : null;
+    const ratio = diff !== null ? Math.abs(diff) / maxAbs : 0;
+    const barW = Math.round(ratio * 46);
+    const isPos = diff !== null && diff >= 0;
+    const barHtml = diff !== null ? `
+      <div class="sym-bar"><div class="sym-bar-line"></div>
+        <div class="sym-bar-fill" style="width:${barW}px;background:${isPos?'var(--green)':'var(--red)'};${isPos?'left:50%':'right:50%'};border-radius:${isPos?'0 2px 2px 0':'2px 0 0 2px'}"></div>
+      </div>` : '—';
+    html += `<tr><td>${m.month}</td><td class="${act!==null?cls(act):'neu'}">${pct(act)}</td><td class="${btv!==null?cls(btv):'neu'}">${pct(btv)}</td><td class="${diff!==null?cls(diff):'neu'}">${pct(diff,2)}</td><td class="bar-cell">${barHtml}</td></tr>`;
+  });
+
+  html += `<tr><td>Total (compounded)</td><td class="${cls(sumAct-1)}">${pct(sumAct-1)}</td><td class="${cls(sumBt-1)}">${pct(sumBt-1)}</td><td class="${cls(totalDiff)}">${pct(totalDiff,2)}</td><td></td></tr>`;
+  html += `</tbody></table>`;
+  document.getElementById('abTableWrap').innerHTML = html;
+}
+
+function renderMonthlyHeatmap(sd) {
+  if (!sd) return;
+  const live = sd.months.filter(m => m.val !== null);
+  const byYear = {};
+  live.forEach(m => { const [mon, yr] = m.month.split('-'); if (!byYear[yr]) byYear[yr] = {}; byYear[yr][mon] = m.val; });
+  const mNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const allVals = live.map(m => Math.abs(m.val));
+  const maxAbs = Math.max(...allVals, 0.001);
+  const years = Object.keys(byYear).sort((a,b)=>b-a);
+  let html = `<table class="monthly-tbl"><thead><tr><th>Year</th>${mNames.map(m=>`<th>${m}</th>`).join('')}<th>Full year</th></tr></thead><tbody>`;
+  years.forEach(yr => {
+    const row = byYear[yr];
+    const annual = mNames.reduce((a, m) => row[m] !== undefined ? a * (1 + row[m]) : a, 1) - 1;
+    html += `<tr><td>${yr}</td>`;
+    mNames.forEach(m => {
+      const v = row[m];
+      if (v === undefined) { html += `<td style="color:var(--dim)">—</td>`; return; }
+      const intensity = Math.min(Math.abs(v) / maxAbs, 1);
+      const bg = v >= 0 ? `rgba(63,185,80,${0.08+intensity*0.45})` : `rgba(248,81,73,${0.08+intensity*0.45})`;
+      const col = v >= 0 ? 'var(--green)' : 'var(--red)';
+      html += `<td style="background:${bg};color:${col}">${pct(v,1,false)}</td>`;
+    });
+    const aBg = annual >= 0 ? 'rgba(63,185,80,.2)' : 'rgba(248,81,73,.2)';
+    const aCol = annual >= 0 ? 'var(--green)' : 'var(--red)';
+    html += `<td style="background:${aBg};color:${aCol};font-weight:600">${pct(annual)}</td></tr>`;
+  });
+  html += `</tbody></table>`;
+  document.getElementById('monthlyHM').innerHTML = html;
+}
+
+// ══════════════════════════════════════════
+// HEATMAP PAGE
+// ══════════════════════════════════════════
+function buildYearPills() {
+  const startYear = parseInt(G.cfg.HeatmapStartYear) || 2018;
+  const curYear = new Date().getFullYear();
+  let html = `<button class="ypill active" onclick="setHmYear('all',this)">All years</button>`;
+  for (let y = startYear; y <= curYear; y++) {
+    html += `<button class="ypill" onclick="setHmYear('${y}',this)">${y}</button>`;
+  }
+  document.getElementById('yearPills').innerHTML = html;
+}
+
+function buildInvFilter() {
+  const investors = ['All investors', ...new Set(Object.values(G.data.stratMap).map(s => s.investor))].sort();
+  document.getElementById('hmInvFilter').innerHTML = investors.map(i => `<option value="${i}">${i}</option>`).join('');
+}
+
+function setHmYear(y, btn) {
+  G.hmYear = y;
+  document.querySelectorAll('.ypill').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderHeatmap();
+}
+
+function renderHeatmap() {
+  if (!G.data) return;
+  const mineOnly = document.getElementById('hmMineOnly').checked;
+  const invFilter = document.getElementById('hmInvFilter').value;
+  const year = G.hmYear;
+  const mNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+  let rows = Object.values(G.data.stratMap);
+  // add benchmarks
+  Object.entries(G.data.bmMap).forEach(([name, mths]) => {
+    rows.push({ name, investor: '—', isMine: false, currency:'USD', benchmark:'', isBenchmark:true, months: mths.map(m=>({month:m.month,val:m.val,valUSD:m.val})) });
+  });
+
+  if (mineOnly) rows = rows.filter(r => r.isMine);
+  if (invFilter && invFilter !== 'All investors') rows = rows.filter(r => r.investor === invFilter || r.isBenchmark);
+
+  // Build year columns or monthly columns
+  let colHeaders, getCellVal;
+  if (year === 'all') {
+    const startYear = parseInt(G.cfg.HeatmapStartYear) || 2018;
+    const curYear = new Date().getFullYear();
+    const years = [];
+    for (let y = startYear; y <= curYear; y++) years.push(String(y));
+    colHeaders = years;
+    getCellVal = (row, col) => {
+      const yrMths = row.months.filter(m => m.month.endsWith('-' + col) && m.valUSD !== null);
+      if (!yrMths.length) return null;
+      return yrMths.reduce((a, m) => a * (1 + m.valUSD), 1) - 1;
+    };
+  } else {
+    colHeaders = mNames;
+    getCellVal = (row, col) => {
+      const m = row.months.find(x => x.month.startsWith(col + '-' + year));
+      return m && m.valUSD !== null ? m.valUSD : null;
+    };
+  }
+
+  // full year / all-time compounded
+  const getFullYear = (row) => {
+    if (year === 'all') {
+      const valid = row.months.filter(m => m.valUSD !== null);
+      if (!valid.length) return null;
+      return valid.reduce((a, m) => a * (1 + m.valUSD), 1) - 1;
+    } else {
+      return getCellVal(row, null) === null ? null :
+        mNames.reduce((a, m) => { const v = getCellVal(row, m); return v !== null ? a * (1 + v) : a; }, 1) - 1;
+    }
+  };
+
+  // sort
+  rows = sortHmRows(rows, colHeaders, getCellVal, getFullYear);
+
+  // all values for colour scale
+  const allVals = [];
+  rows.forEach(r => colHeaders.forEach(c => { const v = getCellVal(r, c); if (v !== null) allVals.push(Math.abs(v)); }));
+  const maxAbs = Math.max(...allVals, 0.001);
+
+  function cellColour(v) {
+    if (v === null) return '';
+    const intensity = Math.min(Math.abs(v) / maxAbs, 1);
+    return v >= 0 ? `background:rgba(63,185,80,${0.06+intensity*0.5});color:var(--green)`
+                  : `background:rgba(248,81,73,${0.06+intensity*0.5});color:var(--red)`;
+  }
+
+  const sortArrow = (col) => G.hmSort.col === col ? (G.hmSort.dir === 1 ? ' ↑' : ' ↓') : '';
+
+  let html = `<table class="hm-table"><thead><tr>
+    <th class="${G.hmSort.col==='investor'?'sorted':''}" onclick="sortHm('investor')" style="left:0">Investor${sortArrow('investor')}</th>
+    <th class="${G.hmSort.col==='name'?'sorted':''}" onclick="sortHm('name')" style="left:110px">Strategy / Benchmark${sortArrow('name')}</th>
+    <th class="${G.hmSort.col==='type'?'sorted':''}" onclick="sortHm('type')" style="left:270px">Type${sortArrow('type')}</th>
+    ${colHeaders.map(c => `<th>${c}</th>`).join('')}
+    <th class="${G.hmSort.col==='fullyr'?'sorted':''}" onclick="sortHm('fullyr')" style="min-width:80px">${year==='all'?'All-time':year+' total'}${sortArrow('fullyr')}</th>
+  </tr></thead><tbody>`;
+
+  rows.forEach(r => {
+    const fy = getFullYear(r);
+    const typeLabel = r.isBenchmark
+      ? `<span class="type-badge type-bm">Benchmark</span>`
+      : `<span class="type-badge type-strat">Strategy</span>`;
+    const mineBadge = r.isMine ? `<span class="mine-badge">Mine</span>` : '';
+    html += `<tr class="${r.isMine?'mine-row':''}">
+      <td>${r.investor}</td>
+      <td>${r.name}${mineBadge}</td>
+      <td>${typeLabel}</td>
+      ${colHeaders.map(c => { const v = getCellVal(r,c); return `<td style="${cellColour(v)}">${v!==null?pct(v,1,false):'<span style="color:var(--dim)">—</span>'}</td>`; }).join('')}
+      <td style="${cellColour(fy)};font-weight:600">${fy!==null?pct(fy):'<span style="color:var(--dim)">—</span>'}</td>
+    </tr>`;
+  });
+
+  html += `</tbody></table>`;
+  document.getElementById('hmWrap').innerHTML = html;
+}
+
+function sortHm(col) {
+  if (G.hmSort.col === col) G.hmSort.dir *= -1;
+  else { G.hmSort.col = col; G.hmSort.dir = col === 'fullyr' ? -1 : 1; }
+  renderHeatmap();
+}
+
+function sortHmRows(rows, colHeaders, getCellVal, getFullYear) {
+  return [...rows].sort((a, b) => {
+    let va, vb;
+    if (G.hmSort.col === 'investor') { va = a.investor; vb = b.investor; return va.localeCompare(vb) * G.hmSort.dir; }
+    if (G.hmSort.col === 'name') { va = a.name; vb = b.name; return va.localeCompare(vb) * G.hmSort.dir; }
+    if (G.hmSort.col === 'type') { va = a.isBenchmark?0:1; vb = b.isBenchmark?0:1; return (va-vb)*G.hmSort.dir; }
+    if (G.hmSort.col === 'fullyr') { va = getFullYear(a)||(-Infinity); vb = getFullYear(b)||(-Infinity); return (va-vb)*G.hmSort.dir; }
+    return 0;
+  });
+}
+
+// ══════════════════════════════════════════
+// RANKING PAGE
+// ══════════════════════════════════════════
+function setRankPeriod(p, btn) {
+  G.rankPeriod = p;
+  document.querySelectorAll('.ppill').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderRanking();
+}
+
+function renderRanking() {
+  if (!G.data) return;
+  const mineOnly = document.getElementById('rankMineOnly').checked;
+  const period = G.rankPeriod;
+
+  let strats = Object.values(G.data.stratMap);
+  if (mineOnly) strats = strats.filter(s => s.isMine);
+
+  const scored = strats.map(s => {
+    const slice = sliceByPeriod(s.months.filter(m => m.valUSD !== null), period);
+    const rets = slice.map(m => m.valUSD);
+    const m = calcMetrics(rets);
+    const bt = G.data.btMap[s.name] || {};
+    return { ...s, ...m, cagr_bt: bt.cagr || null, sharpe_bt: bt.sharpe || null, maxdd_bt: bt.maxdd || null, vol_bt: bt.annvol || null, liveN: slice.length };
+  });
+
+  // Normalise 0-100 for scoring
+  function norm(arr, invert=false) {
+    const valid = arr.filter(v => v !== null && !isNaN(v));
+    if (!valid.length) return arr.map(() => 50);
+    const mn = Math.min(...valid), mx = Math.max(...valid);
+    const rng = mx - mn || 1;
+    return arr.map(v => v === null || isNaN(v) ? 50 : invert ? (1-(v-mn)/rng)*100 : ((v-mn)/rng)*100);
+  }
+
+  const cagrN = norm(scored.map(s => s.cagr));
+  const shrpN = norm(scored.map(s => s.sharpe));
+  const mddN  = norm(scored.map(s => s.maxdd));
+  const volN  = norm(scored.map(s => s.vol), true);
+  const w = G.cfg.weights || { cagr:.4, sharpe:.3, maxdd:.2, vol:.1 };
+
+  scored.forEach((s, i) => {
+    s.score = parseFloat((cagrN[i]*w.cagr + shrpN[i]*w.sharpe + mddN[i]*w.maxdd + volN[i]*w.vol).toFixed(1));
+  });
+
+  // Sort
+  const sc = G.rankSort.col; const sd2 = G.rankSort.dir;
+  scored.sort((a, b) => {
+    const va = a[sc] ?? -Infinity, vb = b[sc] ?? -Infinity;
+    if (typeof va === 'string') return va.localeCompare(vb) * sd2;
+    return (va - vb) * sd2;
+  });
+
+  const arrow = (col) => G.rankSort.col === col ? `<span class="sort-arrow">${G.rankSort.dir===-1?'↓':'↑'}</span>` : '';
+  const thCls = (col) => G.rankSort.col === col ? 'sorted' : '';
+
+  function th(col, label) { return `<th class="${thCls(col)}" onclick="sortRank('${col}')">${label}${arrow(col)}</th>`; }
+
+  let html = `<table class="rank-table"><thead><tr>
+    <th>#</th>
+    ${th('investor','Investor')}${th('name','Strategy')}
+    <th>Type</th>
+    ${th('total','Return')}${th('cagr','CAGR')}${th('sharpe','Sharpe')}${th('maxdd','Max DD')}${th('vol','Ann. vol')}<th>Months</th>
+    ${th('score','Score ★')}
+  </tr></thead><tbody>`;
+
+  scored.forEach((s, i) => {
+    const rCls = i===0?'r1':i===1?'r2':i===2?'r3':'rnum';
+    const mine = s.isMine ? `<span class="mine-badge">Mine</span>` : '';
+    html += `<tr class="${s.isMine?'mine-row':''}">
+      <td><span class="${rCls}">${i+1}</span></td>
+      <td>${s.investor}</td>
+      <td>${s.name}${mine}</td>
+      <td><span class="type-badge type-strat">Strategy</span></td>
+      <td class="${cls(s.total)}">${pct(s.total)}</td>
+      <td class="${cls(s.cagr)}">${pct(s.cagr)}</td>
+      <td class="${s.sharpe>1?'pos':s.sharpe<0.5?'neg':'neu'}">${s.sharpe!=null?s.sharpe.toFixed(2):'—'}</td>
+      <td class="neg">${pct(s.maxdd,1,false)}</td>
+      <td class="neu">${pct(s.vol,1,false)}</td>
+      <td style="color:var(--muted)">${s.liveN}</td>
+      <td><span class="score-val">${s.score}</span></td>
+    </tr>`;
+  });
+
+  html += `</tbody></table>`;
+  document.getElementById('rankWrap').innerHTML = html;
+}
+
+function sortRank(col) {
+  if (G.rankSort.col === col) G.rankSort.dir *= -1;
+  else { G.rankSort.col = col; G.rankSort.dir = -1; }
+  renderRanking();
+}
+
+// ══════════════════════════════════════════
+// DEMO DATA
+// ══════════════════════════════════════════
+function loadDemo() {
+  function sr(s,a,b){let x=Math.sin(s*9301+49297)*233280;x=x-Math.floor(x);return a+(b-a)*x;}
+  const months=[], btMonths=[], bmMonthsFull=[];
+  let y=2018,m=1;
+  while((y<2026)||(y===2026&&m<=6)){months.push(`${['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][m-1]}-${y}`);m++;if(m>12){m=1;y++;}}
+  y=2010;m=1;
+  while(y<2018){btMonths.push(`${['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][m-1]}-${y}`);m++;if(m>12){m=1;y++;}}
+  y=2010;m=1;
+  while((y<2026)||(y===2026&&m<=6)){bmMonthsFull.push(`${['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][m-1]}-${y}`);m++;if(m>12){m=1;y++;}}
+
+  const myStrats=[
+    {name:'Nasdaq100 Rotational v1',bm:'Nasdaq100',ccy:'USD',seed:1,start:0,mu:1.8,sig:4.5},
+    {name:'R1000 Rotational v2',bm:'Russell1000',ccy:'USD',seed:2,start:12,mu:1.4,sig:3.8},
+    {name:'WTT US',bm:'SP500',ccy:'USD',seed:3,start:0,mu:1.2,sig:3.2},
+    {name:'Nick All Weather',bm:'SP500',ccy:'USD',seed:4,start:24,mu:0.9,sig:2.1},
+    {name:'WTT AUS',bm:'ASX200',ccy:'AUD',seed:5,start:6,mu:1.1,sig:3.5},
+    {name:'Mean Reversion R1000 V1',bm:'Russell1000',ccy:'USD',seed:6,start:36,mu:1.6,sig:4.0},
+  ];
+  const extStrats=[
+    {name:'Apex Momentum',inv:'Apex Capital',ccy:'USD',bm:'SP500',seed:11,start:0,mu:1.3,sig:4.2},
+    {name:'Redwood Vol Arb',inv:'Redwood AM',ccy:'USD',bm:'SP500',seed:22,start:6,mu:0.8,sig:2.8},
+    {name:'Blue Ridge L/S',inv:'Blue Ridge',ccy:'USD',bm:'SP500',seed:33,start:0,mu:1.0,sig:3.1},
+    {name:'Northstar Stat Arb',inv:'Northstar',ccy:'USD',bm:'SP500',seed:44,start:12,mu:1.5,sig:3.6},
+    {name:'Cedar Quant Value',inv:'Cedar PM',ccy:'USD',bm:'SP500',seed:55,start:0,mu:1.1,sig:3.0},
+    {name:'Maple Carry',inv:'Maple Fund',ccy:'USD',bm:'SP500',seed:66,start:24,mu:0.7,sig:2.2},
+    {name:'Summit CTA',inv:'Summit AM',ccy:'AUD',bm:'ASX200',seed:77,start:0,mu:1.2,sig:3.8},
+    {name:'Valley Event',inv:'Valley PM',ccy:'INR',bm:'Nifty500',seed:88,start:6,mu:1.4,sig:4.5},
+    {name:'Horizon FI',inv:'Horizon PM',ccy:'INR',bm:'Nifty500',seed:99,start:0,mu:0.9,sig:2.5},
+    {name:'Crest Merger',inv:'Crest Capital',ccy:'USD',bm:'SP500',seed:110,start:18,mu:1.0,sig:2.9},
+  ];
+  const bms=[
+    {name:'SP500',seed:201,mu:1.0,sig:3.8},{name:'Nasdaq100',seed:202,mu:1.3,sig:5.2},
+    {name:'Russell1000',seed:203,mu:0.9,sig:3.9},{name:'ASX200',seed:204,mu:0.7,sig:3.2},
+    {name:'Nifty500',seed:205,mu:1.1,sig:4.1},
+  ];
+
+  function genR(seed,mu,sig,n){return Array.from({length:n},(_,i)=>sr(seed+i,mu-sig*2,mu+sig*2)/100);}
+  function cagr(rets){if(!rets.length)return 0;const t=rets.reduce((a,r)=>a*(1+r),1);return(Math.pow(t,12/rets.length)-1)*100;}
+  function sharpe(rets,rf=0.04){if(rets.length<2)return 0;const a=rets.reduce((s,r)=>s+r,0)/rets.length;const v=Math.sqrt(rets.reduce((s,r)=>s+(r-a)**2,0)/rets.length*12);return v>0?(Math.pow(1+a,12)-1-rf)/v:0;}
+  function maxdd(rets){let pk=1,eq=1,dd=0;rets.forEach(r=>{eq*=(1+r);if(eq>pk)pk=eq;if((eq-pk)/pk<dd)dd=(eq-pk)/pk;});return dd*100;}
+  function vol(rets){if(rets.length<2)return 0;const a=rets.reduce((s,r)=>s+r,0)/rets.length;return Math.sqrt(rets.reduce((s,r)=>s+(r-a)**2,0)/rets.length*12)*100;}
+
+  const fxMap={};
+  bmMonthsFull.forEach((m,i)=>{fxMap[m]={AUDUSD:sr(i+600,0.62,0.78),INRUSD:sr(i+700,0.011,0.013)};});
+
+  function toUSD(v,ccy,m){if(v===null)return null;const fx=fxMap[m]||{};if(ccy==='AUD')return v*(fx.AUDUSD||1);if(ccy==='INR')return v*(fx.INRUSD||1);return v;}
+
+  const stratMap={};
+  myStrats.forEach(s=>{
+    const rets=genR(s.seed,s.mu,s.sig,months.length);
+    const mData=months.map((m,i)=>{const v=i>=s.start?rets[i]:null;return{month:m,val:v,valUSD:toUSD(v,s.ccy,m)};});
+    const live=mData.filter(m=>m.val!==null);
+    stratMap[s.name]={name:s.name,investor:'Me',isMine:true,currency:s.ccy,benchmark:s.bm,months:mData,liveCount:live.length,inception:live.length?live[0].month:'—'};
+  });
+  extStrats.forEach(s=>{
+    const rets=genR(s.seed,s.mu,s.sig,months.length);
+    const mData=months.map((m,i)=>{const v=i>=s.start?rets[i]:null;return{month:m,val:v,valUSD:toUSD(v,s.ccy,m)};});
+    const live=mData.filter(m=>m.val!==null);
+    stratMap[s.name]={name:s.name,investor:s.inv,isMine:false,currency:s.ccy,benchmark:s.bm,months:mData,liveCount:live.length,inception:live.length?live[0].month:'—'};
+  });
+
+  const btRetMap={};
+  myStrats.forEach(s=>{
+    const rets=genR(s.seed+1000,s.mu*1.1,s.sig*0.9,btMonths.length);
+    btRetMap[s.name]=btMonths.map((m,i)=>({month:m,val:rets[i]}));
+  });
+
+  const bmMap={};
+  bms.forEach(b=>{
+    const rets=genR(b.seed,b.mu,b.sig,bmMonthsFull.length);
+    bmMap[b.name]=bmMonthsFull.map((m,i)=>({month:m,val:rets[i]}));
+  });
+
+  const btMap={};
+  myStrats.forEach(s=>{
+    const rets=genR(s.seed+1000,s.mu*1.1,s.sig*0.9,btMonths.length);
+    btMap[s.name]={cagr:parseFloat(cagr(rets).toFixed(2)),sharpe:parseFloat(sharpe(rets).toFixed(2)),maxdd:parseFloat(maxdd(rets).toFixed(2)),annvol:parseFloat(vol(rets).toFixed(2))};
+  });
+  extStrats.forEach(s=>{
+    const rets=genR(s.seed,s.mu,s.sig,months.length-s.start);
+    btMap[s.name]={cagr:parseFloat(cagr(rets).toFixed(2)),sharpe:parseFloat(sharpe(rets).toFixed(2)),maxdd:parseFloat(maxdd(rets).toFixed(2)),annvol:parseFloat(vol(rets).toFixed(2))};
+  });
+
+  G.cfg = {
+    myStrategies: myStrats.map((s,i)=>({key:`Strategy${i+1}`,name:s.name,benchmark:s.bm,currency:s.ccy})),
+    DefaultStrategy:'Strategy1', HeatmapStartYear:2018, RiskFreeRate:0.04,
+    weights:{cagr:.4,sharpe:.3,maxdd:.2,vol:.1}
+  };
+  G.data = { stratMap, btRetMap, bmMap, btMap, fxMap };
+  document.getElementById('lastUpd').textContent = 'Demo data';
+  document.getElementById('setupStatus').textContent = '✓ Demo data loaded';
+  initUI();
+}
+
+function connectSheet() {
+  const id = document.getElementById('sheetIdIn').value.trim();
+  if (!id) return;
+  G.sheetId = id;
+  localStorage.setItem('qdSheetId', id);
+  loadSheetData();
+}
+
+// Auto-connect if saved
+if (G.sheetId) {
+  document.getElementById('sheetIdIn').value = G.sheetId;
+  loadSheetData();
+} else {
+  document.getElementById('kpiGrid').innerHTML = `<div class="loading" style="grid-column:1/-1;padding:60px 20px">
+    <div style="font-size:32px;margin-bottom:14px">📊</div>
+    <div style="color:var(--text);font-size:15px;margin-bottom:8px">Connect your Google Sheet or load demo data</div>
+    <div style="color:var(--muted);margin-bottom:20px;font-size:13px">Go to the Setup tab to paste your Sheet ID</div>
+    <button class="btn" onclick="loadDemo()">Load demo data</button>
+  </div>`;
+}
+</script>
+</body>
+</html>
