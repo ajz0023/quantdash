@@ -1001,7 +1001,8 @@ def render_heatmap(tabs_data):
         st.write(f"**Total month cols detected:** {len(month_cols)}")
         st.write(f"**First 3:** {month_cols[:3]}")
         st.write(f"**Last 6:** {month_cols[-6:]}")
-        st.write(f"**Raw col sample (first 10):** {[str(c) for c in all_cols[:10]]}")
+        st.write(f"**years_in_data:** {sorted(set(int(m.split('-')[1]) for m in month_cols))}")
+        st.write(f"**cur_year:** {datetime.now().year}")
         st.write(f"**Raw col sample (last 10):** {[str(c) for c in all_cols[-10:]]}")
 
     # ── Build FX lookup: month -> {AUDUSD, INRUSD} ──
@@ -1110,6 +1111,13 @@ def render_heatmap(tabs_data):
         display_rows.append(dr)
 
     display_df = pd.DataFrame(display_rows)
+
+    # Verify columns
+    with st.expander("Debug: display_df columns", expanded=True):
+        st.write(f"display_df columns: {list(display_df.columns)}")
+        st.write(f"display_df shape: {display_df.shape}")
+        if len(display_df) > 0:
+            st.write(f"First row sample: {dict(list(display_df.iloc[0].items())[-5:])}")
 
     # ── Sort state ──
     yr_labels = [label for _, label in year_cols]
