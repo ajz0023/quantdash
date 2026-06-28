@@ -126,7 +126,7 @@ def load_tab(sheet_id, tab):
 def load_all_data(sheet_id):
     with st.spinner("Loading data from Google Sheet…"):
         tabs = {}
-        for tab in ["Config", "Returns", "Backtest_Returns", "Backtest", "FX"]:
+        for tab in ["Config", "Monthly_Returns", "Backtest_Returns", "Backtest", "FX"]:
             tabs[tab] = load_tab(sheet_id, tab)
         # Try multiple variations of portfolio tab name
         port_df = pd.DataFrame()
@@ -137,13 +137,14 @@ def load_all_data(sheet_id):
                 port_df = df
                 break
         tabs["Overall_portfolio"] = port_df
-        # Split Returns into strategies and benchmarks based on Type column
-        ret_df = tabs["Returns"]
+        # Split Monthly_Returns into strategies and benchmarks based on Type column
+        ret_df = tabs["Monthly_Returns"]
         if not ret_df.empty and "Type" in ret_df.columns:
             tabs["Benchmarks"] = ret_df[ret_df["Type"].str.strip().str.lower() == "benchmark"].copy()
             tabs["Returns"] = ret_df[ret_df["Type"].str.strip().str.lower() == "strategy"].copy()
         else:
             tabs["Benchmarks"] = pd.DataFrame()
+            tabs["Returns"] = ret_df
     return tabs
 
 def parse_config(cfg_df, ret_df):
