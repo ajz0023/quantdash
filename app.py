@@ -126,7 +126,7 @@ def load_tab(sheet_id, tab):
 def load_all_data(sheet_id):
     with st.spinner("Loading data from Google Sheet…"):
         tabs = {}
-        for tab in ["Config", "Returns", "Backtest_Returns", "Benchmarks", "Backtest", "FX"]:
+        for tab in ["Config", "Returns", "Backtest_Returns", "Backtest", "FX"]:
             tabs[tab] = load_tab(sheet_id, tab)
         # Try multiple variations of portfolio tab name
         port_df = pd.DataFrame()
@@ -137,6 +137,13 @@ def load_all_data(sheet_id):
                 port_df = df
                 break
         tabs["Overall_portfolio"] = port_df
+        # Split Returns into strategies and benchmarks based on Type column
+        ret_df = tabs["Returns"]
+        if not ret_df.empty and "Type" in ret_df.columns:
+            tabs["Benchmarks"] = ret_df[ret_df["Type"].str.strip().str.lower() == "benchmark"].copy()
+            tabs["Returns"] = ret_df[ret_df["Type"].str.strip().str.lower() == "strategy"].copy()
+        else:
+            tabs["Benchmarks"] = pd.DataFrame()
     return tabs
 
 def parse_config(cfg_df, ret_df):
@@ -149,9 +156,8 @@ def parse_config(cfg_df, ret_df):
             if p and v and " " not in p:  # only single-word keys are reliable
                 cfg[p] = v
 
-    # Derive strategies from Returns tab
+    # Derive strategies from Returns tab (Type=Strategy, IsMine=TRUE)
     strategies = []
-    # Handle column name variations (IsMine, Is Mine, ismine, empty header etc.)
     if not ret_df.empty:
         # Find IsMine column regardless of case/spacing
         ismine_col = next((c for c in ret_df.columns if str(c).strip().replace(" ","").lower() == "ismine"), None)
@@ -421,11 +427,15 @@ def render_overview(cfg, tabs_data, month_cols):
     if not strat_row.empty:
         live_rets = parse_returns_row(strat_row.iloc[0], month_cols).dropna()
 
-    # Get benchmark returns
+    # Get benchmark returns from combined Returns tab (Type=Benchmark rows)
     bm_rets = pd.Series(dtype=float)
     bm_month_cols = get_month_cols(bm_df)
     if not bm_df.empty and bm_name:
-        bm_row = bm_df[bm_df["Benchmark"] == bm_name]
+        # In new structure, benchmark name is in Strategy column
+        bm_row = bm_df[bm_df["Strategy"].astype(str).str.strip() == bm_name] if "Strategy" in bm_df.columns else pd.DataFrame()
+        # Fallback: try Benchmark column for old structure
+        if bm_row.empty and "Benchmark" in bm_df.columns:
+            bm_row = bm_df[bm_df["Benchmark"].astype(str).str.strip() == bm_name]
         if not bm_row.empty:
             bm_rets = parse_returns_row(bm_row.iloc[0], bm_month_cols).dropna()
 
@@ -686,14 +696,19 @@ def render_heatmap(cfg, tabs_data, month_cols):
     # Build combined data
     all_rows = []
 
-    # Add benchmarks
-    if not bm_df.empty and "Benchmark" in bm_df.columns:
+    # Add benchmarks - now from Returns tab with Type=Benchmark
+    # Benchmark name is in Strategy column
+    if not bm_df.empty:
+        bm_name_col = "Strategy" if "Strategy" in bm_df.columns else "Benchmark"
         for _, row in bm_df.iterrows():
-            bm_name = str(row.get("Benchmark","")).strip()
+            bm_name_val = str(row.get(bm_name_col,"")).strip()
+            if not bm_name_val or bm_name_val == "nan":
+                continue
+            ccy = str(row.get("Currency","USD")).strip()
             rets = parse_returns_row(row, bm_month_cols)
             all_rows.append({
-                "Investor": "-", "Name": bm_name, "Type": "Benchmark",
-                "Currency": "USD", "IsMine": False, "rets": rets
+                "Investor": "-", "Name": bm_name_val, "Type": "Benchmark",
+                "Currency": ccy, "IsMine": False, "rets": rets
             })
 
     # Add strategies
@@ -967,8 +982,9 @@ def render_portfolio(tabs_data):
     # Get SP500 benchmark returns
     bm_month_cols = get_month_cols(bm_df) if not bm_df.empty else []
     sp500_rets = pd.Series(dtype=float)
-    if not bm_df.empty and "Benchmark" in bm_df.columns:
-        sp_row = bm_df[bm_df["Benchmark"] == "SP500"]
+    if not bm_df.empty:
+        bm_name_col = "Strategy" if "Strategy" in bm_df.columns else "Benchmark"
+        sp_row = bm_df[bm_df[bm_name_col].astype(str).str.strip() == "SP500"]
         if not sp_row.empty:
             sp500_rets = parse_returns_row(sp_row.iloc[0], bm_month_cols)
 
@@ -1142,11 +1158,11 @@ def render_setup():
     st.markdown("### Required sheet structure - 6 tabs")
     tabs_info = {
         "Config": "Parameter | Value - settings, weights, heatmap start year",
-        "Returns": "Strategy | Investor | IsMine | Currency | Benchmark | Jan-2018 | … (decimals)",
-        "Backtest_Returns": "Strategy | Currency | Benchmark | Jan-2010 | … (your strategies only)",
-        "Benchmarks": "Benchmark | Jan-2010 | … (decimals)",
+        "Returns": "Strategy | Investor | IsMine | Currency | Type (Strategy/Benchmark) | Benchmark | Jan-2018 | ... - includes both strategies AND benchmarks",
+        "Backtest_Returns": "Strategy | Currency | Benchmark | Jan-2010 | ... (your strategies only)",
         "Backtest": "Strategy | Investor | IsMine | Currency | Benchmark | InceptionDate | CAGR | Sharpe | MaxDD | AnnVol",
         "FX": "Month | AUDUSD | INRUSD",
+        "Overall_portfolio": "Portfolio | Benchmark | Jan-2026 | ... (dollar values)",
     }
     for tab, desc in tabs_info.items():
         st.markdown(f"**{tab}** - `{desc}`")
