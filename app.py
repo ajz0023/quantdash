@@ -996,6 +996,14 @@ def render_heatmap(tabs_data):
         st.error(f"No month columns found. Columns: {all_cols[:10]}")
         return
 
+    # Debug info
+    with st.expander("Debug info (click to expand)", expanded=True):
+        st.write(f"**Total month cols detected:** {len(month_cols)}")
+        st.write(f"**First 3:** {month_cols[:3]}")
+        st.write(f"**Last 6:** {month_cols[-6:]}")
+        st.write(f"**Raw col sample (first 10):** {[str(c) for c in all_cols[:10]]}")
+        st.write(f"**Raw col sample (last 10):** {[str(c) for c in all_cols[-10:]]}")
+
     # ── Build FX lookup: month -> {AUDUSD, INRUSD} ──
     fx_map = {}
     if not fx_df.empty and "Month" in fx_df.columns:
