@@ -1066,14 +1066,20 @@ def render_portfolio(tabs_data):
             marker=dict(size=5, color=color),
         ))
 
+    # Build layout manually (avoid DARK conflict with yaxis override)
     fig.update_layout(
-        **DARK, height=320,
-        yaxis=dict(
-            tickprefix="$", tickformat=",.0f",
-            gridcolor="rgba(255,255,255,0.04)",
-            side="right"
-        ),
-        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="left", x=0),
+        plot_bgcolor="#0d1117", paper_bgcolor="#0d1117",
+        font=dict(color="#7d8590", size=11),
+        height=320,
+        hovermode="x unified",
+        margin=dict(l=10, r=60, t=40, b=30),
+        xaxis=dict(gridcolor="rgba(255,255,255,0.04)", showgrid=True, zeroline=False,
+                   ticks="", tickfont=dict(color="#7d8590")),
+        yaxis=dict(gridcolor="rgba(255,255,255,0.04)", showgrid=True, zeroline=False,
+                   tickprefix="$", tickformat=",.0f", side="right",
+                   tickfont=dict(color="#7d8590")),
+        legend=dict(bgcolor="rgba(0,0,0,0)", font=dict(size=11),
+                    orientation="h", yanchor="bottom", y=1.02, xanchor="left", x=0),
     )
     st.plotly_chart(fig, use_container_width=True)
 
