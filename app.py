@@ -907,16 +907,15 @@ def render_portfolio(tabs_data):
         st.error("Could not load Overall_portfolio tab. Check the tab name matches exactly.")
         return
 
-    # Detect value columns (Mon-YYYY format)
-    val_cols = [c for c in port_df.columns
-                if pd.to_datetime(c, format="%b-%Y", errors="coerce") is not pd.NaT
-                and str(pd.to_datetime(c, format="%b-%Y", errors="coerce")) != "NaT"]
+    # Detect value columns (Mon-YYYY format) - use same logic as get_month_cols
+    val_cols = get_month_cols(port_df)
 
     if not val_cols:
-        st.error("No monthly columns found in Overall_portfolio tab. Columns should be like Jan-2026, Feb-2026 etc.")
+        # Debug: show what columns were found
+        st.error(f"No monthly columns found in Overall_portfolio tab. Found columns: {list(port_df.columns)[:10]}")
         return
 
-    # Find Portfolio column (first column)
+    # Find Portfolio column (first non-month column)
     port_col = port_df.columns[0]
     bm_col   = port_df.columns[1] if len(port_df.columns) > 1 else None
 
