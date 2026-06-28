@@ -432,15 +432,15 @@ def render_overview(cfg, tabs_data, month_cols):
 
     # Metadata row
     st.markdown(f"""
-    <div style='display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap'>
-        <div style='background:#161b22;border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:6px 12px;font-size:12px;color:#7d8590'>
-            Benchmark: <strong style='color:#e6edf3'>{bm_name}</strong></div>
-        <div style='background:#161b22;border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:6px 12px;font-size:12px;color:#7d8590'>
-            Currency: <strong style='color:#e6edf3'>{currency}</strong></div>
-        <div style='background:#161b22;border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:6px 12px;font-size:12px;color:#7d8590'>
-            Inception: <strong style='color:#e6edf3'>{live_rets.index[0] if not live_rets.empty else "-"}</strong></div>
-        <div style='background:#161b22;border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:6px 12px;font-size:12px;color:#7d8590'>
-            Live months: <strong style='color:#e6edf3'>{len(live_rets)}</strong></div>
+    <div style='display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap'>
+        <div style='background:#f1f5f9;border:1px solid #e2e8f0;border-radius:8px;padding:6px 12px;font-size:12px;color:#64748b'>
+            Benchmark: <strong style='color:#1e293b'>{bm_name}</strong></div>
+        <div style='background:#f1f5f9;border:1px solid #e2e8f0;border-radius:8px;padding:6px 12px;font-size:12px;color:#64748b'>
+            Currency: <strong style='color:#1e293b'>{currency}</strong></div>
+        <div style='background:#f1f5f9;border:1px solid #e2e8f0;border-radius:8px;padding:6px 12px;font-size:12px;color:#64748b'>
+            Inception: <strong style='color:#1e293b'>{live_rets.index[0] if not live_rets.empty else "-"}</strong></div>
+        <div style='background:#f1f5f9;border:1px solid #e2e8f0;border-radius:8px;padding:6px 12px;font-size:12px;color:#64748b'>
+            Live months: <strong style='color:#1e293b'>{len(live_rets)}</strong></div>
     </div>
     """, unsafe_allow_html=True)
 
