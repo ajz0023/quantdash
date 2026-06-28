@@ -26,38 +26,61 @@ st.markdown("""
     .stApp { background-color: #f8f9fa; }
     .main .block-container { padding-top: 1rem; padding-bottom: 1rem; max-width: 1400px; }
 
+    /* Global font size bump */
+    html, body, [class*="css"] { font-size: 15px; }
+
     /* KPI cards */
     .kpi-card {
-        background: #ffffff; border: 1px solid #e2e8f0;
-        border-radius: 10px; padding: 16px; margin-bottom: 12px;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+        background: #ffffff; border: 1px solid #cbd5e1;
+        border-radius: 10px; padding: 18px 20px; margin-bottom: 12px;
+        box-shadow: 0 1px 4px rgba(0,0,0,0.08);
     }
-    .kpi-title { font-size: 11px; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; }
-    .kpi-row { display: flex; justify-content: space-between; margin-bottom: 4px; }
-    .kpi-label { font-size: 11px; color: #94a3b8; }
-    .kpi-val-pos { font-size: 15px; font-weight: 600; color: #16a34a; font-family: monospace; }
-    .kpi-val-neg { font-size: 15px; font-weight: 600; color: #dc2626; font-family: monospace; }
-    .kpi-val-neu { font-size: 15px; font-weight: 600; color: #64748b; font-family: monospace; }
+    .kpi-title {
+        font-size: 13px; font-weight: 700; color: #1e293b;
+        text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 12px;
+    }
+    .kpi-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+    .kpi-label { font-size: 13px; font-weight: 500; color: #475569; }
+    .kpi-val-pos { font-size: 17px; font-weight: 700; color: #15803d; font-family: monospace; }
+    .kpi-val-neg { font-size: 17px; font-weight: 700; color: #dc2626; font-family: monospace; }
+    .kpi-val-neu { font-size: 17px; font-weight: 700; color: #475569; font-family: monospace; }
 
     /* Metric overrides */
-    [data-testid="stMetricValue"] { font-size: 18px !important; }
-    [data-testid="stMetricDelta"] { font-size: 12px !important; }
+    [data-testid="stMetricValue"] { font-size: 20px !important; font-weight: 700 !important; }
+    [data-testid="stMetricDelta"] { font-size: 14px !important; }
+    [data-testid="stMetricLabel"] { font-size: 14px !important; font-weight: 600 !important; color: #1e293b !important; }
 
     /* Tab styling */
     .stTabs [data-baseweb="tab-list"] { gap: 4px; background-color: #eef2f7; border-radius: 10px; padding: 4px; border: 1px solid #dde3ed; }
-    .stTabs [data-baseweb="tab"] { border-radius: 6px; color: #475569; font-size: 13px; font-weight: 500; padding: 7px 18px; background-color: transparent; }
+    .stTabs [data-baseweb="tab"] { border-radius: 6px; color: #334155; font-size: 14px; font-weight: 600; padding: 8px 20px; background-color: transparent; }
     .stTabs [data-baseweb="tab"]:hover { background-color: #ffffff; color: #1e293b; }
-    .stTabs [aria-selected="true"] { background-color: #ffffff !important; color: #1e40af !important; font-weight: 600 !important; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+    .stTabs [aria-selected="true"] { background-color: #ffffff !important; color: #1e40af !important; font-weight: 700 !important; box-shadow: 0 1px 3px rgba(0,0,0,0.12); }
 
-    /* Dataframe */
-    [data-testid="stDataFrame"] { border-radius: 10px; }
+    /* Dataframe - bigger text */
+    [data-testid="stDataFrame"] { border-radius: 10px; font-size: 14px; }
+    [data-testid="stDataFrame"] table { font-size: 14px !important; }
+    [data-testid="stDataFrame"] th { font-size: 13px !important; font-weight: 700 !important; color: #1e293b !important; }
+    [data-testid="stDataFrame"] td { font-size: 14px !important; color: #1e293b !important; }
 
     /* Selectbox */
-    [data-testid="stSelectbox"] label { font-size: 12px; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; }
+    [data-testid="stSelectbox"] label { font-size: 13px; font-weight: 600; color: #334155; text-transform: uppercase; letter-spacing: 0.5px; }
+    [data-testid="stSelectbox"] div { font-size: 14px !important; }
+
+    /* Radio buttons */
+    [data-testid="stRadio"] label { font-size: 14px !important; font-weight: 500; color: #1e293b !important; }
+    [data-testid="stRadio"] p { font-size: 14px !important; font-weight: 600; color: #334155 !important; }
+
+    /* Checkboxes */
+    [data-testid="stCheckbox"] label { font-size: 14px !important; font-weight: 500; color: #1e293b !important; }
 
     /* Headers */
-    h1, h2, h3 { color: #1e293b !important; }
-    p { color: #64748b; }
+    h1 { font-size: 24px !important; font-weight: 700 !important; color: #1e293b !important; }
+    h2 { font-size: 20px !important; font-weight: 700 !important; color: #1e293b !important; }
+    h3 { font-size: 17px !important; font-weight: 600 !important; color: #1e293b !important; }
+    p { font-size: 14px; color: #475569; }
+
+    /* Caption */
+    [data-testid="stCaptionContainer"] { font-size: 13px !important; color: #475569 !important; }
 
     /* Hide streamlit branding */
     #MainMenu { visibility: hidden; }
@@ -66,14 +89,17 @@ st.markdown("""
 
     /* Section headers */
     .section-hdr {
-        font-size: 13px; font-weight: 600; color: #1e293b;
-        margin-bottom: 12px; padding-bottom: 6px;
-        border-bottom: 1px solid #e2e8f0;
+        font-size: 15px; font-weight: 700; color: #1e293b;
+        margin-bottom: 14px; padding-bottom: 8px;
+        border-bottom: 2px solid #e2e8f0;
     }
 
     /* Badge */
-    .badge-mine { background: rgba(30,64,175,0.1); color: #1e40af; border-radius: 4px; padding: 1px 6px; font-size: 10px; font-weight: 600; }
-    .badge-bm { background: rgba(180,130,0,0.1); color: #92400e; border-radius: 4px; padding: 1px 6px; font-size: 10px; }
+    .badge-mine { background: rgba(30,64,175,0.1); color: #1e40af; border-radius: 4px; padding: 2px 8px; font-size: 12px; font-weight: 700; }
+    .badge-bm { background: rgba(180,130,0,0.1); color: #92400e; border-radius: 4px; padding: 2px 8px; font-size: 12px; font-weight: 600; }
+
+    /* Info/warning boxes */
+    [data-testid="stAlert"] { font-size: 14px !important; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -288,11 +314,13 @@ def color_val(v, invert=False):
 # ══════════════════════════════════════════
 DARK = dict(
     plot_bgcolor="#ffffff", paper_bgcolor="#f8f9fa",
-    font=dict(color="#64748b", size=11),
-    xaxis=dict(gridcolor="#e2e8f0", showgrid=True, zeroline=False),
-    yaxis=dict(gridcolor="#e2e8f0", showgrid=True, zeroline=False, side="right"),
-    legend=dict(bgcolor="rgba(255,255,255,0.8)", font=dict(size=11)),
-    margin=dict(l=10, r=50, t=30, b=30),
+    font=dict(color="#334155", size=13),
+    xaxis=dict(gridcolor="#e2e8f0", showgrid=True, zeroline=False,
+               tickfont=dict(size=12, color="#475569")),
+    yaxis=dict(gridcolor="#e2e8f0", showgrid=True, zeroline=False, side="right",
+               tickfont=dict(size=12, color="#475569")),
+    legend=dict(bgcolor="rgba(255,255,255,0.9)", font=dict(size=13, color="#1e293b")),
+    margin=dict(l=10, r=60, t=40, b=30),
     hovermode="x unified",
 )
 
@@ -317,7 +345,7 @@ def main():
     with col_logo:
         st.markdown("### ⬡ **Quant**Dash")
     with col_time:
-        st.markdown(f"<p style='text-align:right;margin-top:12px;font-size:12px;color:#64748b'>{datetime.now().strftime('%d %b %Y %H:%M')}</p>", unsafe_allow_html=True)
+        st.markdown(f"<p style='text-align:right;margin-top:12px;font-size:14px;font-weight:500;color:#475569'>{datetime.now().strftime('%d %b %Y %H:%M')}</p>", unsafe_allow_html=True)
 
     # ── Sheet ID ──
     if SHEET_ID_KEY not in st.session_state:
@@ -433,13 +461,13 @@ def render_overview(cfg, tabs_data, month_cols):
     # Metadata row
     st.markdown(f"""
     <div style='display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap'>
-        <div style='background:#f1f5f9;border:1px solid #e2e8f0;border-radius:8px;padding:6px 12px;font-size:12px;color:#64748b'>
-            Benchmark: <strong style='color:#1e293b'>{bm_name}</strong></div>
-        <div style='background:#f1f5f9;border:1px solid #e2e8f0;border-radius:8px;padding:6px 12px;font-size:12px;color:#64748b'>
+        <div style='background:#f1f5f9;border:1px solid #e2e8f0;border-radius:8px;padding:6px 12px;font-size:14px;font-weight:600;color:#475569'>
+            Benchmark: <strong style='color:#1e293b;font-size:13px'>{bm_name}</strong></div>
+        <div style='background:#f1f5f9;border:1px solid #e2e8f0;border-radius:8px;padding:6px 12px;font-size:14px;font-weight:600;color:#475569'>
             Currency: <strong style='color:#1e293b'>{currency}</strong></div>
-        <div style='background:#f1f5f9;border:1px solid #e2e8f0;border-radius:8px;padding:6px 12px;font-size:12px;color:#64748b'>
+        <div style='background:#f1f5f9;border:1px solid #e2e8f0;border-radius:8px;padding:6px 12px;font-size:14px;font-weight:600;color:#475569'>
             Inception: <strong style='color:#1e293b'>{live_rets.index[0] if not live_rets.empty else "-"}</strong></div>
-        <div style='background:#f1f5f9;border:1px solid #e2e8f0;border-radius:8px;padding:6px 12px;font-size:12px;color:#64748b'>
+        <div style='background:#f1f5f9;border:1px solid #e2e8f0;border-radius:8px;padding:6px 12px;font-size:14px;font-weight:600;color:#475569'>
             Live months: <strong style='color:#1e293b'>{len(live_rets)}</strong></div>
     </div>
     """, unsafe_allow_html=True)
@@ -616,7 +644,7 @@ def render_overview(cfg, tabs_data, month_cols):
                 y=[str(y) for y in pivot.index],
                 text=fmt_pivot.values,
                 texttemplate="%{text}",
-                textfont=dict(size=11, color="white"),
+                textfont=dict(size=12, color="white", family="Arial"),
                 colorscale=hm_colorscale,
                 zmin=0, zmax=1,
                 showscale=False,
@@ -628,8 +656,8 @@ def render_overview(cfg, tabs_data, month_cols):
                 font=dict(color="#1e293b", size=11),
                 margin=dict(l=50,r=20,t=50,b=10),
                 height=max(200, len(pivot)*34+80),
-                xaxis=dict(side="top", tickfont=dict(size=11, color="#1e293b")),
-                yaxis=dict(tickfont=dict(size=11, color="#1e293b")),
+                xaxis=dict(side="top", tickfont=dict(size=13, color="#1e293b")),
+                yaxis=dict(tickfont=dict(size=13, color="#1e293b")),
             )
             st.plotly_chart(fig_hm, use_container_width=True)
 
@@ -776,7 +804,7 @@ def render_heatmap(cfg, tabs_data, month_cols):
         y=row_labels,
         text=text_matrix,
         texttemplate="%{text}",
-        textfont=dict(size=10, color="white"),
+        textfont=dict(size=11, color="white", family="Arial"),
         colorscale=colorscale,
         zmin=0, zmax=1,
         showscale=False,
@@ -788,9 +816,9 @@ def render_heatmap(cfg, tabs_data, month_cols):
         font=dict(color="#1e293b", size=10),
         margin=dict(l=220, r=40, t=60, b=20),
         height=max(350, len(all_rows)*30+100),
-        xaxis=dict(side="top", tickfont=dict(size=11, color="#1e293b"),
+        xaxis=dict(side="top", tickfont=dict(size=13, color="#1e293b"),
                    gridcolor="rgba(255,255,255,0.05)"),
-        yaxis=dict(tickfont=dict(size=10, color="#1e293b"),
+        yaxis=dict(tickfont=dict(size=12, color="#1e293b"),
                    autorange="reversed",
                    gridcolor="rgba(255,255,255,0.05)"),
     )
@@ -1019,29 +1047,29 @@ def render_portfolio(tabs_data):
 
         alpha_str = f"{alpha*100:+.1f}% vs SP500" if not np.isnan(alpha) else "-"
         return f"""
-        <div class='kpi-card' style='border-top:3px solid {"#4f8ef7" if "AA" in name else "#7c3aed" if "NJ" in name else "#3fb950"}'>
+        <div class='kpi-card' style='border-top:3px solid {"#4f8ef7" if "AA" in name else "#7c3aed" if "NZ" in name else "#3fb950"}'>
             <div class='kpi-title'>{name}</div>
             <div class='kpi-row'>
                 <span class='kpi-label'>Latest value</span>
-                <span style='font-size:18px;font-weight:700;color:#1e293b;font-family:monospace'>
+                <span style='font-size:22px;font-weight:700;color:#1e293b;font-family:monospace'>
                     ${latest:,.0f}
                 </span>
             </div>
             <div class='kpi-row' style='margin-top:8px'>
                 <span class='kpi-label'>YTD return</span>
-                <span style='font-size:15px;font-weight:600;color:{col(ytd_pct)};font-family:monospace'>
+                <span style='font-size:17px;font-weight:700;color:{col(ytd_pct)};font-family:monospace'>
                     {ytd_pct*100:+.1f}%
                 </span>
             </div>
             <div class='kpi-row'>
                 <span class='kpi-label'>YTD $ gain</span>
-                <span style='font-size:14px;font-weight:600;color:{col(ytd_dollar)};font-family:monospace'>
+                <span style='font-size:16px;font-weight:700;color:{col(ytd_dollar)};font-family:monospace'>
                     ${ytd_dollar:+,.0f}
                 </span>
             </div>
             <div class='kpi-row'>
                 <span class='kpi-label'>Alpha</span>
-                <span style='font-size:13px;font-weight:500;color:{col(alpha) if not np.isnan(alpha) else "#7d8590"}'>
+                <span style='font-size:14px;font-weight:600;color:{col(alpha) if not np.isnan(alpha) else "#7d8590"}'>
                     {alpha_str}
                 </span>
             </div>
