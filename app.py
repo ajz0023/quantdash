@@ -114,8 +114,20 @@ def parse_config(cfg_df, ret_df):
 
     # Derive strategies from Returns tab
     strategies = []
+    # Handle column name variations (IsMine, Is Mine, ismine, empty header etc.)
+    if not ret_df.empty:
+        # Find IsMine column regardless of case/spacing
+        ismine_col = next((c for c in ret_df.columns if str(c).strip().replace(" ","").lower() == "ismine"), None)
+        if ismine_col and ismine_col != "IsMine":
+            ret_df = ret_df.rename(columns={ismine_col: "IsMine"})
+        # If still not found, check if column C (index 2) contains TRUE/FALSE — use it
+        if "IsMine" not in ret_df.columns and len(ret_df.columns) > 2:
+            col_c = ret_df.iloc[:, 2].astype(str).str.strip().str.upper()
+            if col_c.isin(["TRUE","FALSE","1","0","YES","NO"]).any():
+                ret_df = ret_df.rename(columns={ret_df.columns[2]: "IsMine"})
     if not ret_df.empty and "IsMine" in ret_df.columns:
-        mine = ret_df[ret_df["IsMine"].astype(str).str.upper() == "TRUE"].copy()
+        # Accept TRUE, true, True, 1, Yes, yes, YES
+        mine = ret_df[ret_df["IsMine"].astype(str).str.strip().str.upper().isin(["TRUE","1","YES"])].copy()
         for _, row in mine.iterrows():
             strategies.append({
                 "name": str(row.get("Strategy", "")).strip(),
@@ -618,7 +630,7 @@ def render_heatmap(cfg, tabs_data, month_cols):
     # Add strategies
     if not ret_df.empty:
         for _, row in ret_df.iterrows():
-            is_mine = str(row.get("IsMine","")).upper() == "TRUE"
+            is_mine = str(row.get("IsMine","")).strip().upper() in ["TRUE","1","YES"]
             if mine_only and not is_mine:
                 continue
             if inv_filter != "All investors" and str(row.get("Investor","")) != inv_filter and not (is_mine and inv_filter == "All investors"):
@@ -738,7 +750,7 @@ def render_ranking(cfg, tabs_data, month_cols):
     # Build scored rows
     scored = []
     for _, row in ret_df.iterrows():
-        is_mine = str(row.get("IsMine","")).upper() == "TRUE"
+        is_mine = str(row.get("IsMine","")).strip().upper() in ["TRUE","1","YES"]
         if mine_only and not is_mine:
             continue
         ccy = str(row.get("Currency","USD"))
