@@ -1186,12 +1186,65 @@ def render_heatmap(tabs_data):
     )
     st.plotly_chart(fig, use_container_width=True)
 
-    # ── Data table ──
+    # ── Data table with colour styling ──
     st.markdown("<div class='section-hdr'>Data table</div>", unsafe_allow_html=True)
+
+    def color_cell(v):
+        """Absolute colour scale: <=−20% deep red, 0% yellow, >=+20% deep green."""
+        if v is None or (isinstance(v, float) and np.isnan(v)):
+            return ""
+        # Fixed breakpoints (values in %)
+        if v <= -20:
+            r, g, b = 139, 0, 0        # deep red
+        elif v <= -10:
+            t = (v + 20) / 10          # 0=deep red, 1=red
+            r = int(139 + (231-139)*t)
+            g = int(0   + (76 -0  )*t)
+            b = 0
+        elif v <= -2:
+            t = (v + 10) / 8           # 0=red, 1=orange
+            r = int(231 + (255-231)*t)
+            g = int(76  + (165-76 )*t)
+            b = 0
+        elif v <= 2:
+            t = (v + 2) / 4            # 0=orange, 1=yellow
+            r = 255
+            g = int(165 + (230-165)*t)
+            b = 0
+        elif v <= 10:
+            t = (v - 2) / 8            # 0=yellow, 1=light green
+            r = int(255 + (133-255)*t)
+            g = int(230 + (201-230)*t)
+            b = int(0   + (30 -0  )*t)
+        elif v <= 20:
+            t = (v - 10) / 10          # 0=light green, 1=green
+            r = int(133 + (39 -133)*t)
+            g = int(201 + (174-201)*t)
+            b = int(30  + (60 -30 )*t)
+        else:
+            r, g, b = 20, 90, 50       # deep green
+
+        # Choose text colour for readability
+        luminance = 0.299*r + 0.587*g + 0.114*b
+        txt = "white" if luminance < 140 else "#1e293b"
+        return f"background-color: rgb({r},{g},{b}); color: {txt}; font-weight: 600;"
+
+    def style_table(df):
+        styled = pd.DataFrame("", index=df.index, columns=df.columns)
+        for col in yr_labels:
+            if col in df.columns:
+                styled[col] = df[col].apply(
+                    lambda v: color_cell(float(str(v).replace("%","").replace("+",""))
+                              if str(v) not in ["-","","nan"] else np.nan)
+                )
+        return styled
+
     fmt_df = display_df.copy()
     for col in yr_labels:
         fmt_df[col] = fmt_df[col].apply(lambda v: f"{v:+.1f}%" if pd.notna(v) else "-")
-    st.dataframe(fmt_df, use_container_width=True, hide_index=True)
+
+    styled_df = fmt_df.style.apply(style_table, axis=None)
+    st.dataframe(styled_df, use_container_width=True, hide_index=True)
 
 
 def render_setup():
