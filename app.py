@@ -98,7 +98,7 @@ def load_tab(sheet_id, tab):
 def load_all_data(sheet_id):
     with st.spinner("Loading data from Google Sheet…"):
         tabs = {}
-        for tab in ["Config", "Returns", "Backtest_Returns", "Benchmarks", "Backtest", "FX"]:
+        for tab in ["Config", "Returns", "Backtest_Returns", "Benchmarks", "Backtest", "FX", "Overall_portfolio"]:
             tabs[tab] = load_tab(sheet_id, tab)
     return tabs
 
@@ -313,15 +313,15 @@ def main():
         st.session_state[SHEET_ID_KEY] = "1qD8I4KDGheqbMXg8_Fia3Qjch5repf383s9DpJCvwTE"
 
     # ── Tabs ──
-    tab1, tab2, tab3, tab4 = st.tabs(["📈 Strategy overview", "🌡 Heatmap", "🏆 Ranking", "⚙ Setup"])
+    tab1, tab2, tab3, tab4, tab5 = st.tabs(["📈 Strategy overview", "🌡 Heatmap", "🏆 Ranking", "💼 Portfolio", "⚙ Setup"])
 
     # ── Load data ──
     sheet_id = st.session_state[SHEET_ID_KEY]
     if not sheet_id:
-        for tab in [tab1, tab2, tab3]:
+        for tab in [tab1, tab2, tab3, tab4]:
             with tab:
                 st.info("Enter your Google Sheet ID in the Setup tab to get started.")
-        with tab4:
+        with tab5:
             render_setup()
         return
 
@@ -340,6 +340,8 @@ def main():
     with tab3:
         render_ranking(cfg, tabs_data, month_cols)
     with tab4:
+        render_portfolio(tabs_data)
+    with tab5:
         render_setup()
 
 # ══════════════════════════════════════════
@@ -893,8 +895,212 @@ def render_ranking(cfg, tabs_data, month_cols):
                                 "Score": st.column_config.TextColumn(width="small")})
     st.caption("★ = My strategy  |  Score = weighted composite (CAGR 40%, Sharpe 30%, Max DD 20%, Vol 10%)  |  Click column headers to sort")
 
+
 # ══════════════════════════════════════════
-# TAB 4 — SETUP
+# TAB 4 — PORTFOLIO OVERVIEW
+# ══════════════════════════════════════════
+def render_portfolio(tabs_data):
+    port_df = tabs_data.get("Overall_portfolio", pd.DataFrame())
+    bm_df   = tabs_data.get("Benchmarks", pd.DataFrame())
+
+    if port_df.empty:
+        st.error("Could not load Overall_portfolio tab. Check the tab name matches exactly.")
+        return
+
+    # Detect value columns (Mon-YYYY format)
+    val_cols = [c for c in port_df.columns
+                if pd.to_datetime(c, format="%b-%Y", errors="coerce") is not pd.NaT
+                and str(pd.to_datetime(c, format="%b-%Y", errors="coerce")) != "NaT"]
+
+    if not val_cols:
+        st.error("No monthly columns found in Overall_portfolio tab. Columns should be like Jan-2026, Feb-2026 etc.")
+        return
+
+    # Find Portfolio column (first column)
+    port_col = port_df.columns[0]
+    bm_col   = port_df.columns[1] if len(port_df.columns) > 1 else None
+
+    # Get SP500 benchmark returns
+    bm_month_cols = get_month_cols(bm_df) if not bm_df.empty else []
+    sp500_rets = pd.Series(dtype=float)
+    if not bm_df.empty and "Benchmark" in bm_df.columns:
+        sp_row = bm_df[bm_df["Benchmark"] == "SP500"]
+        if not sp_row.empty:
+            sp500_rets = parse_returns_row(sp_row.iloc[0], bm_month_cols)
+
+    # Parse portfolio values
+    portfolios = {}
+    for _, row in port_df.iterrows():
+        name = str(row[port_col]).strip()
+        vals = {}
+        for c in val_cols:
+            try:
+                v = str(row[c]).replace(",","").replace("$","").strip()
+                vals[c] = float(v) if v and v != "nan" else np.nan
+            except:
+                vals[c] = np.nan
+        portfolios[name] = pd.Series(vals)
+
+    if not portfolios:
+        st.error("No portfolio rows found.")
+        return
+
+    # Sort columns chronologically
+    val_cols_sorted = sorted(val_cols,
+        key=lambda x: pd.to_datetime(x, format="%b-%Y", errors="coerce"))
+
+    # ── Period selector ──
+    period = st.radio("Period", ["YTD", "All"], horizontal=True, key="port_period")
+
+    if period == "YTD":
+        now = datetime.now()
+        display_cols = [c for c in val_cols_sorted
+                       if pd.to_datetime(c, format="%b-%Y", errors="coerce").year == now.year]
+    else:
+        display_cols = val_cols_sorted
+
+    if not display_cols:
+        st.warning("No data for selected period.")
+        return
+
+    start_col = display_cols[0]
+    end_col   = display_cols[-1]
+
+    # ── KPI Cards ──
+    def calc_portfolio_kpis(series, start_col, end_col):
+        start_val = series.get(start_col, np.nan)
+        end_val   = series.get(end_col,   np.nan)
+        if pd.isna(start_val) or pd.isna(end_val) or start_val == 0:
+            return {}
+        ytd_pct   = (end_val - start_val) / start_val
+        ytd_dollar = end_val - start_val
+        return {
+            "latest":     end_val,
+            "ytd_pct":    ytd_pct,
+            "ytd_dollar": ytd_dollar,
+            "start":      start_val,
+        }
+
+    # SP500 YTD for alpha calculation
+    sp500_ytd = np.nan
+    if not sp500_rets.empty:
+        sp_cols = [c for c in display_cols if c in sp500_rets.index]
+        if sp_cols:
+            sp_slice = sp500_rets[sp_cols].dropna()
+            sp500_ytd = (1 + sp_slice).prod() - 1 if not sp_slice.empty else np.nan
+
+    def kpi_card_portfolio(name, kpis, sp500_ytd):
+        if not kpis:
+            return f"<div class='kpi-card'><div class='kpi-title'>{name}</div><div style='color:#7d8590'>No data</div></div>"
+        latest     = kpis["latest"]
+        ytd_pct    = kpis["ytd_pct"]
+        ytd_dollar = kpis["ytd_dollar"]
+        alpha      = ytd_pct - sp500_ytd if not np.isnan(sp500_ytd) else np.nan
+
+        def col(v, invert=False):
+            if np.isnan(v): return "#7d8590"
+            return "#3fb950" if (v > 0) != invert else "#f85149"
+
+        alpha_str = f"{alpha*100:+.1f}% vs SP500" if not np.isnan(alpha) else "—"
+        return f"""
+        <div class='kpi-card' style='border-top:3px solid {"#4f8ef7" if "AA" in name else "#7c3aed" if "NJ" in name else "#3fb950"}'>
+            <div class='kpi-title'>{name}</div>
+            <div class='kpi-row'>
+                <span class='kpi-label'>Latest value</span>
+                <span style='font-size:18px;font-weight:700;color:#e6edf3;font-family:monospace'>
+                    ${latest:,.0f}
+                </span>
+            </div>
+            <div class='kpi-row' style='margin-top:8px'>
+                <span class='kpi-label'>YTD return</span>
+                <span style='font-size:15px;font-weight:600;color:{col(ytd_pct)};font-family:monospace'>
+                    {ytd_pct*100:+.1f}%
+                </span>
+            </div>
+            <div class='kpi-row'>
+                <span class='kpi-label'>YTD $ gain</span>
+                <span style='font-size:14px;font-weight:600;color:{col(ytd_dollar)};font-family:monospace'>
+                    ${ytd_dollar:+,.0f}
+                </span>
+            </div>
+            <div class='kpi-row'>
+                <span class='kpi-label'>Alpha</span>
+                <span style='font-size:13px;font-weight:500;color:{col(alpha) if not np.isnan(alpha) else "#7d8590"}'>
+                    {alpha_str}
+                </span>
+            </div>
+        </div>"""
+
+    port_names = list(portfolios.keys())
+    kpi_cols = st.columns(len(port_names))
+    for i, name in enumerate(port_names):
+        kpis = calc_portfolio_kpis(portfolios[name], start_col, end_col)
+        with kpi_cols[i]:
+            st.markdown(kpi_card_portfolio(name, kpis, sp500_ytd), unsafe_allow_html=True)
+
+    # ── Growth Chart ──
+    st.markdown("<div class='section-hdr' style='margin-top:16px'>Portfolio value over time</div>",
+                unsafe_allow_html=True)
+
+    colors = {"AA": "#4f8ef7", "NJ": "#7c3aed", "Total": "#3fb950"}
+    fig = go.Figure()
+    for name, series in portfolios.items():
+        y_vals = [series.get(c, np.nan) for c in display_cols]
+        color  = colors.get(name, "#e6edf3")
+        fig.add_trace(go.Scatter(
+            x=display_cols, y=y_vals,
+            name=name,
+            line=dict(color=color, width=2.5),
+            fill="tozeroy" if name == "Total" else None,
+            fillcolor="rgba(63,185,80,0.05)" if name == "Total" else None,
+            hovertemplate=f"<b>{name}</b><br>%{{x}}: $%{{y:,.0f}}<extra></extra>",
+            mode="lines+markers",
+            marker=dict(size=5, color=color),
+        ))
+
+    fig.update_layout(
+        **DARK, height=320,
+        yaxis=dict(
+            tickprefix="$", tickformat=",.0f",
+            gridcolor="rgba(255,255,255,0.04)",
+            side="right"
+        ),
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="left", x=0),
+    )
+    st.plotly_chart(fig, use_container_width=True)
+
+    # ── Monthly Returns Table ──
+    st.markdown("<div class='section-hdr'>Monthly breakdown</div>", unsafe_allow_html=True)
+
+    tbl_rows = []
+    for i in range(len(display_cols) - 1, -1, -1):
+        c = display_cols[i]
+        prev_c = display_cols[i - 1] if i > 0 else None
+        row = {"Month": c}
+        for name, series in portfolios.items():
+            curr_val = series.get(c, np.nan)
+            prev_val = series.get(prev_c, np.nan) if prev_c else np.nan
+            pct = (curr_val - prev_val) / prev_val if not (np.isnan(curr_val) or np.isnan(prev_val) or prev_val == 0) else np.nan
+            row[f"{name} value"]  = f"${curr_val:,.0f}" if not np.isnan(curr_val) else "—"
+            row[f"{name} %"]      = f"{pct*100:+.1f}%" if not np.isnan(pct) else "—"
+        # SP500 for that month
+        sp_ret = sp500_rets.get(c, np.nan) if not sp500_rets.empty else np.nan
+        row["SP500 %"] = f"{sp_ret*100:+.1f}%" if not np.isnan(sp_ret) else "—"
+        # Alpha for each portfolio
+        for name, series in portfolios.items():
+            curr_val = series.get(c, np.nan)
+            prev_val = series.get(prev_c, np.nan) if prev_c else np.nan
+            pct = (curr_val - prev_val) / prev_val if not (np.isnan(curr_val) or np.isnan(prev_val) or prev_val == 0) else np.nan
+            alpha = pct - sp_ret if not (np.isnan(pct) or np.isnan(sp_ret)) else np.nan
+            row[f"{name} alpha"] = f"{alpha*100:+.1f}%" if not np.isnan(alpha) else "—"
+        tbl_rows.append(row)
+
+    if tbl_rows:
+        tbl_df = pd.DataFrame(tbl_rows)
+        st.dataframe(tbl_df, use_container_width=True, hide_index=True)
+
+# ══════════════════════════════════════════
+# TAB 5 — SETUP
 # ══════════════════════════════════════════
 def render_setup():
     st.markdown("### Connect your Google Sheet")
