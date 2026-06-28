@@ -1163,7 +1163,12 @@ def render_heatmap(tabs_data):
         fmt_df[col] = fmt_df[col].apply(lambda v: f"{v:+.1f}%" if pd.notna(v) else "-")
 
     styled_df = fmt_df.style.apply(style_table, axis=None)
-    st.dataframe(styled_df, use_container_width=True, hide_index=True)
+    # Show all rows without scrolling
+    n_rows = len(fmt_df)
+    row_h = 35   # px per row
+    header_h = 40
+    tbl_h = min(n_rows * row_h + header_h, 1200)  # cap at 1200px
+    st.dataframe(styled_df, use_container_width=True, hide_index=True, height=tbl_h)
 
 
 def render_setup():
