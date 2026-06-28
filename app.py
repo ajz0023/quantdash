@@ -572,25 +572,34 @@ def render_overview(cfg, tabs_data, month_cols):
             fmt_pivot = pivot.map(lambda v: f"{v*100:+.1f}%" if pd.notna(v) else "—")
 
             # Color the cells using plotly heatmap
+            # Column-relative colouring for monthly heatmap
             hm_colorscale = [
-                [0.0,  "#c0392b"],[0.35, "#e74c3c"],
-                [0.47, "#f39c12"],[0.50, "#f1c40f"],
-                [0.53, "#2ecc71"],[0.65, "#27ae60"],
-                [1.0,  "#1a6b3a"],
+                [0.0,  "#c0392b"],[0.25, "#e74c3c"],
+                [0.45, "#f39c12"],[0.50, "#f1c40f"],
+                [0.55, "#2ecc71"],[0.75, "#27ae60"],
+                [1.0,  "#1a5e38"],
             ]
-            zvals = pivot.values * 100
-            abs_max = max(abs(np.nanmin(zvals)), abs(np.nanmax(zvals)), 1)
+            zvals_raw = pivot.values * 100
+            # Normalise each column relative to its own min/max
+            zvals_norm = np.zeros_like(zvals_raw, dtype=float)
+            for ci in range(zvals_raw.shape[1]):
+                col = zvals_raw[:, ci]
+                valid = col[~np.isnan(col)]
+                if len(valid) < 2:
+                    zvals_norm[:, ci] = 0.5
+                    continue
+                cmin, cmax = valid.min(), valid.max()
+                rng = cmax - cmin
+                zvals_norm[:, ci] = (col - cmin) / rng if rng > 0 else 0.5
             fig_hm = go.Figure(go.Heatmap(
-                z=zvals,
+                z=zvals_norm,
                 x=list(pivot.columns),
                 y=[str(y) for y in pivot.index],
                 text=fmt_pivot.values,
                 texttemplate="%{text}",
                 textfont=dict(size=11, color="white"),
                 colorscale=hm_colorscale,
-                zmid=0,
-                zmin=-abs_max,
-                zmax=abs_max,
+                zmin=0, zmax=1,
                 showscale=False,
                 hoverongaps=False,
                 xgap=2, ygap=2,
@@ -707,59 +716,60 @@ def render_heatmap(cfg, tabs_data, month_cols):
 
     all_cols = col_labels + ["Full year"]
 
-    # Build heatmap with red/yellow/green colorscale
-    # colorscale: red for negative, yellow near zero, green for positive
+    # Column-relative normalisation: rank within each column 0-1
+    # So best in each year = 1 (green), worst = 0 (red), middle = 0.5 (yellow)
+    import numpy as np
+    matrix_arr = np.array([[v if v is not None and not np.isnan(v) else np.nan
+                            for v in row] for row in matrix], dtype=float)
+
+    norm_matrix = np.full_like(matrix_arr, np.nan)
+    for col_idx in range(matrix_arr.shape[1]):
+        col = matrix_arr[:, col_idx]
+        valid = col[~np.isnan(col)]
+        if len(valid) < 2:
+            norm_matrix[:, col_idx] = 0.5
+            continue
+        col_min, col_max = valid.min(), valid.max()
+        rng = col_max - col_min
+        if rng == 0:
+            norm_matrix[:, col_idx] = 0.5
+        else:
+            norm_matrix[:, col_idx] = (col - col_min) / rng
+
+    # Colorscale: red → yellow → green (0 → 0.5 → 1)
     colorscale = [
-        [0.0,  "#c0392b"],   # deep red  (most negative)
-        [0.35, "#e74c3c"],   # red
-        [0.47, "#f39c12"],   # orange-yellow (approaching zero)
-        [0.50, "#f1c40f"],   # yellow (zero)
-        [0.53, "#2ecc71"],   # light green (just above zero)
-        [0.65, "#27ae60"],   # green
-        [1.0,  "#1a6b3a"],   # deep green (most positive)
+        [0.0,  "#c0392b"],  # deep red (lowest in column)
+        [0.25, "#e74c3c"],  # red
+        [0.45, "#f39c12"],  # orange
+        [0.5,  "#f1c40f"],  # yellow (middle)
+        [0.55, "#2ecc71"],  # light green
+        [0.75, "#27ae60"],  # green
+        [1.0,  "#1a5e38"],  # deep green (highest in column)
     ]
 
-    # Determine zmin/zmax symmetrically
-    flat_vals = [v for row in matrix for v in row if v is not None and not np.isnan(v)]
-    if flat_vals:
-        abs_max = max(abs(min(flat_vals)), abs(max(flat_vals)), 1)
-    else:
-        abs_max = 10
-
     fig = go.Figure(go.Heatmap(
-        z=matrix,
+        z=norm_matrix.tolist(),
         x=all_cols,
         y=row_labels,
         text=text_matrix,
         texttemplate="%{text}",
         textfont=dict(size=10, color="white"),
         colorscale=colorscale,
-        zmid=0,
-        zmin=-abs_max,
-        zmax=abs_max,
-        showscale=True,
-        colorbar=dict(
-            thickness=12, len=0.8,
-            tickfont=dict(color="#e6edf3", size=10),
-            ticksuffix="%",
-        ),
+        zmin=0, zmax=1,
+        showscale=False,
         hoverongaps=False,
         xgap=2, ygap=2,
     ))
     fig.update_layout(
         plot_bgcolor="#0d1117", paper_bgcolor="#161b22",
         font=dict(color="#e6edf3", size=10),
-        margin=dict(l=220, r=80, t=60, b=20),
+        margin=dict(l=220, r=40, t=60, b=20),
         height=max(350, len(all_rows)*30+100),
-        xaxis=dict(
-            side="top", tickfont=dict(size=11, color="#e6edf3"),
-            gridcolor="rgba(255,255,255,0.05)"
-        ),
-        yaxis=dict(
-            tickfont=dict(size=10, color="#e6edf3"),
-            autorange="reversed",
-            gridcolor="rgba(255,255,255,0.05)"
-        ),
+        xaxis=dict(side="top", tickfont=dict(size=11, color="#e6edf3"),
+                   gridcolor="rgba(255,255,255,0.05)"),
+        yaxis=dict(tickfont=dict(size=10, color="#e6edf3"),
+                   autorange="reversed",
+                   gridcolor="rgba(255,255,255,0.05)"),
     )
     st.plotly_chart(fig, use_container_width=True)
 
