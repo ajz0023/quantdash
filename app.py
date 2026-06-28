@@ -1159,6 +1159,26 @@ def render_heatmap(tabs_data):
             for v in row_vals
         ])
 
+    # Targeted debug
+    with st.expander("z_matrix debug", expanded=True):
+        st.write(f"z_cols: {z_cols}")
+        st.write(f"z_matrix[0] (first row): {z_matrix[0]}")
+        st.write(f"z_matrix last 3 cols of row 0: {z_matrix[0][-3:]}")
+        st.write(f"text_matrix[0] last 3: {text_matrix[0][-3:]}")
+        # Check if 2025 and 2026 cols have any non-nan
+        col_2025_idx = z_cols.index('2025') if '2025' in z_cols else -1
+        col_2026_idx = next((i for i, c in enumerate(z_cols) if '2026' in c), -1)
+        if col_2025_idx >= 0:
+            vals_2025 = [row[col_2025_idx] for row in z_matrix]
+            non_nan_2025 = [v for v in vals_2025 if v is not None and not np.isnan(float(v))]
+            st.write(f"2025 col (idx {col_2025_idx}): {len(non_nan_2025)} non-nan values out of {len(vals_2025)}")
+            st.write(f"2025 sample values: {vals_2025[:5]}")
+        if col_2026_idx >= 0:
+            vals_2026 = [row[col_2026_idx] for row in z_matrix]
+            non_nan_2026 = [v for v in vals_2026 if v is not None and not np.isnan(float(v))]
+            st.write(f"2026 col (idx {col_2026_idx}): {len(non_nan_2026)} non-nan values out of {len(vals_2026)}")
+            st.write(f"2026 sample values: {vals_2026[:5]}")
+
     # Absolute colour scale:
     # Negative values -> red shades
     # Zero -> orange
