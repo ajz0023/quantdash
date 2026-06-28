@@ -22,40 +22,41 @@ st.set_page_config(
 # ══════════════════════════════════════════
 st.markdown("""
 <style>
-    /* Dark theme overrides */
-    .stApp { background-color: #0d1117; }
+    /* Light theme */
+    .stApp { background-color: #f8f9fa; }
     .main .block-container { padding-top: 1rem; padding-bottom: 1rem; max-width: 1400px; }
 
     /* KPI cards */
     .kpi-card {
-        background: #161b22; border: 1px solid rgba(255,255,255,0.08);
+        background: #ffffff; border: 1px solid #e2e8f0;
         border-radius: 10px; padding: 16px; margin-bottom: 12px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.06);
     }
-    .kpi-title { font-size: 11px; color: #7d8590; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; }
+    .kpi-title { font-size: 11px; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; }
     .kpi-row { display: flex; justify-content: space-between; margin-bottom: 4px; }
-    .kpi-label { font-size: 11px; color: #7d8590; }
-    .kpi-val-pos { font-size: 15px; font-weight: 600; color: #3fb950; font-family: monospace; }
-    .kpi-val-neg { font-size: 15px; font-weight: 600; color: #f85149; font-family: monospace; }
-    .kpi-val-neu { font-size: 15px; font-weight: 600; color: #7d8590; font-family: monospace; }
+    .kpi-label { font-size: 11px; color: #94a3b8; }
+    .kpi-val-pos { font-size: 15px; font-weight: 600; color: #16a34a; font-family: monospace; }
+    .kpi-val-neg { font-size: 15px; font-weight: 600; color: #dc2626; font-family: monospace; }
+    .kpi-val-neu { font-size: 15px; font-weight: 600; color: #64748b; font-family: monospace; }
 
     /* Metric overrides */
     [data-testid="stMetricValue"] { font-size: 18px !important; }
     [data-testid="stMetricDelta"] { font-size: 12px !important; }
 
     /* Tab styling */
-    .stTabs [data-baseweb="tab-list"] { gap: 8px; background-color: #161b22; border-radius: 10px; padding: 4px; }
-    .stTabs [data-baseweb="tab"] { border-radius: 6px; color: #7d8590; font-size: 13px; padding: 6px 16px; }
-    .stTabs [aria-selected="true"] { background-color: #21262d !important; color: #e6edf3 !important; }
+    .stTabs [data-baseweb="tab-list"] { gap: 8px; background-color: #ffffff; border-radius: 10px; padding: 4px; border: 1px solid #e2e8f0; }
+    .stTabs [data-baseweb="tab"] { border-radius: 6px; color: #64748b; font-size: 13px; padding: 6px 16px; }
+    .stTabs [aria-selected="true"] { background-color: #1e40af !important; color: #ffffff !important; }
 
     /* Dataframe */
     [data-testid="stDataFrame"] { border-radius: 10px; }
 
     /* Selectbox */
-    [data-testid="stSelectbox"] label { font-size: 12px; color: #7d8590; text-transform: uppercase; letter-spacing: 0.5px; }
+    [data-testid="stSelectbox"] label { font-size: 12px; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; }
 
     /* Headers */
-    h1, h2, h3 { color: #e6edf3 !important; }
-    p { color: #7d8590; }
+    h1, h2, h3 { color: #1e293b !important; }
+    p { color: #64748b; }
 
     /* Hide streamlit branding */
     #MainMenu { visibility: hidden; }
@@ -64,14 +65,14 @@ st.markdown("""
 
     /* Section headers */
     .section-hdr {
-        font-size: 13px; font-weight: 500; color: #e6edf3;
+        font-size: 13px; font-weight: 600; color: #1e293b;
         margin-bottom: 12px; padding-bottom: 6px;
-        border-bottom: 1px solid rgba(255,255,255,0.08);
+        border-bottom: 1px solid #e2e8f0;
     }
 
     /* Badge */
-    .badge-mine { background: rgba(79,142,247,0.15); color: #4f8ef7; border-radius: 4px; padding: 1px 6px; font-size: 10px; font-weight: 600; }
-    .badge-bm { background: rgba(214,153,34,0.15); color: #d29922; border-radius: 4px; padding: 1px 6px; font-size: 10px; }
+    .badge-mine { background: rgba(30,64,175,0.1); color: #1e40af; border-radius: 4px; padding: 1px 6px; font-size: 10px; font-weight: 600; }
+    .badge-bm { background: rgba(180,130,0,0.1); color: #92400e; border-radius: 4px; padding: 1px 6px; font-size: 10px; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -285,11 +286,11 @@ def color_val(v, invert=False):
 # CHART HELPERS
 # ══════════════════════════════════════════
 DARK = dict(
-    plot_bgcolor="#0d1117", paper_bgcolor="#0d1117",
-    font=dict(color="#7d8590", size=11),
-    xaxis=dict(gridcolor="rgba(255,255,255,0.04)", showgrid=True, zeroline=False),
-    yaxis=dict(gridcolor="rgba(255,255,255,0.04)", showgrid=True, zeroline=False, side="right"),
-    legend=dict(bgcolor="rgba(0,0,0,0)", font=dict(size=11)),
+    plot_bgcolor="#ffffff", paper_bgcolor="#f8f9fa",
+    font=dict(color="#64748b", size=11),
+    xaxis=dict(gridcolor="#e2e8f0", showgrid=True, zeroline=False),
+    yaxis=dict(gridcolor="#e2e8f0", showgrid=True, zeroline=False, side="right"),
+    legend=dict(bgcolor="rgba(255,255,255,0.8)", font=dict(size=11)),
     margin=dict(l=10, r=50, t=30, b=30),
     hovermode="x unified",
 )
@@ -315,7 +316,7 @@ def main():
     with col_logo:
         st.markdown("### ⬡ **Quant**Dash")
     with col_time:
-        st.markdown(f"<p style='text-align:right;margin-top:12px;font-size:12px'>{datetime.now().strftime('%d %b %Y %H:%M')}</p>", unsafe_allow_html=True)
+        st.markdown(f"<p style='text-align:right;margin-top:12px;font-size:12px;color:#64748b'>{datetime.now().strftime('%d %b %Y %H:%M')}</p>", unsafe_allow_html=True)
 
     # ── Sheet ID ──
     if SHEET_ID_KEY not in st.session_state:
@@ -614,7 +615,7 @@ def render_overview(cfg, tabs_data, month_cols):
                 y=[str(y) for y in pivot.index],
                 text=fmt_pivot.values,
                 texttemplate="%{text}",
-                textfont=dict(size=11, color="white"),
+                textfont=dict(size=11, color="#1e293b"),
                 colorscale=hm_colorscale,
                 zmin=0, zmax=1,
                 showscale=False,
@@ -622,12 +623,12 @@ def render_overview(cfg, tabs_data, month_cols):
                 xgap=2, ygap=2,
             ))
             fig_hm.update_layout(
-                plot_bgcolor="#0d1117", paper_bgcolor="#161b22",
-                font=dict(color="#e6edf3", size=11),
+                plot_bgcolor="#ffffff", paper_bgcolor="#f8f9fa",
+                font=dict(color="#1e293b", size=11),
                 margin=dict(l=50,r=20,t=50,b=10),
                 height=max(200, len(pivot)*34+80),
-                xaxis=dict(side="top", tickfont=dict(size=11, color="#e6edf3")),
-                yaxis=dict(tickfont=dict(size=11, color="#e6edf3")),
+                xaxis=dict(side="top", tickfont=dict(size=11, color="#1e293b")),
+                yaxis=dict(tickfont=dict(size=11, color="#1e293b")),
             )
             st.plotly_chart(fig_hm, use_container_width=True)
 
@@ -774,7 +775,7 @@ def render_heatmap(cfg, tabs_data, month_cols):
         y=row_labels,
         text=text_matrix,
         texttemplate="%{text}",
-        textfont=dict(size=10, color="white"),
+        textfont=dict(size=10, color="#1e293b"),
         colorscale=colorscale,
         zmin=0, zmax=1,
         showscale=False,
@@ -782,13 +783,13 @@ def render_heatmap(cfg, tabs_data, month_cols):
         xgap=2, ygap=2,
     ))
     fig.update_layout(
-        plot_bgcolor="#0d1117", paper_bgcolor="#161b22",
-        font=dict(color="#e6edf3", size=10),
+        plot_bgcolor="#ffffff", paper_bgcolor="#f8f9fa",
+        font=dict(color="#1e293b", size=10),
         margin=dict(l=220, r=40, t=60, b=20),
         height=max(350, len(all_rows)*30+100),
-        xaxis=dict(side="top", tickfont=dict(size=11, color="#e6edf3"),
+        xaxis=dict(side="top", tickfont=dict(size=11, color="#1e293b"),
                    gridcolor="rgba(255,255,255,0.05)"),
-        yaxis=dict(tickfont=dict(size=10, color="#e6edf3"),
+        yaxis=dict(tickfont=dict(size=10, color="#1e293b"),
                    autorange="reversed",
                    gridcolor="rgba(255,255,255,0.05)"),
     )
@@ -1021,7 +1022,7 @@ def render_portfolio(tabs_data):
             <div class='kpi-title'>{name}</div>
             <div class='kpi-row'>
                 <span class='kpi-label'>Latest value</span>
-                <span style='font-size:18px;font-weight:700;color:#e6edf3;font-family:monospace'>
+                <span style='font-size:18px;font-weight:700;color:#1e293b;font-family:monospace'>
                     ${latest:,.0f}
                 </span>
             </div>
@@ -1074,17 +1075,17 @@ def render_portfolio(tabs_data):
 
     # Build layout manually (avoid DARK conflict with yaxis override)
     fig.update_layout(
-        plot_bgcolor="#0d1117", paper_bgcolor="#0d1117",
-        font=dict(color="#7d8590", size=11),
+        plot_bgcolor="#ffffff", paper_bgcolor="#f8f9fa",
+        font=dict(color="#64748b", size=11),
         height=320,
         hovermode="x unified",
         margin=dict(l=10, r=60, t=40, b=30),
-        xaxis=dict(gridcolor="rgba(255,255,255,0.04)", showgrid=True, zeroline=False,
-                   ticks="", tickfont=dict(color="#7d8590")),
-        yaxis=dict(gridcolor="rgba(255,255,255,0.04)", showgrid=True, zeroline=False,
+        xaxis=dict(gridcolor="#e2e8f0", showgrid=True, zeroline=False,
+                   ticks="", tickfont=dict(color="#64748b")),
+        yaxis=dict(gridcolor="#e2e8f0", showgrid=True, zeroline=False,
                    tickprefix="$", tickformat=",.0f", side="right",
-                   tickfont=dict(color="#7d8590")),
-        legend=dict(bgcolor="rgba(0,0,0,0)", font=dict(size=11),
+                   tickfont=dict(color="#64748b")),
+        legend=dict(bgcolor="rgba(255,255,255,0.8)", font=dict(size=11),
                     orientation="h", yanchor="bottom", y=1.02, xanchor="left", x=0),
     )
     st.plotly_chart(fig, use_container_width=True)
