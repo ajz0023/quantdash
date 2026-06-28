@@ -1136,27 +1136,33 @@ def render_heatmap(tabs_data):
         ).reset_index(drop=True)
 
     # ── Build Plotly heatmap ──
-    # Z matrix = year columns only (numeric %)
-    z_cols = yr_labels
-    z_matrix = display_df[z_cols].values.tolist()
-    y_labels = [
-        f"{r['Investor']}  |  {r['Strategy / Benchmark']}"
-        for r in display_rows
-    ]
-    # Reorder y_labels to match sorted display_df
-    y_labels = [
-        f"{row['Investor']}  |  {row['Strategy / Benchmark']}"
-        for _, row in display_df.iterrows()
-    ]
+    z_cols = yr_labels  # all year column labels including YTD
 
-    # Text matrix
+    # Apply sort to display_df before building matrices
+    if sort_col in display_df.columns:
+        display_df = display_df.sort_values(
+            sort_col, ascending=sort_asc, na_position="last"
+        ).reset_index(drop=True)
+
+    # Build all matrices from sorted display_df
+    z_matrix = []
     text_matrix = []
+    y_labels = []
+
     for _, row in display_df.iterrows():
-        row_text = []
+        y_labels.append(f"{row['Investor']}  |  {row['Strategy / Benchmark']}")
+        row_z = []
+        row_t = []
         for col in z_cols:
-            v = row[col]
-            row_text.append(f"{v:+.1f}%" if pd.notna(v) else "-")
-        text_matrix.append(row_text)
+            v = row.get(col, np.nan)
+            if pd.notna(v) and not np.isnan(float(v)):
+                row_z.append(float(v))
+                row_t.append(f"{float(v):+.1f}%")
+            else:
+                row_z.append(np.nan)
+                row_t.append("-")
+        z_matrix.append(row_z)
+        text_matrix.append(row_t)
 
     # Absolute colour scale:
     # Negative values -> red shades
@@ -1202,8 +1208,10 @@ def render_heatmap(tabs_data):
 
     n_rows = len(display_df)
     n_cols = len(z_cols)
-    cell_h = 30
-    fig_h = max(400, n_rows * cell_h + 120)
+    cell_h = 28
+    cell_w = 90   # fixed narrow column width
+    fig_h = max(400, n_rows * cell_h + 140)
+    fig_w = max(900, 280 + n_cols * cell_w + 100)  # 280 for y-axis labels
 
     fig = go.Figure(go.Heatmap(
         z=z_matrix,
@@ -1211,15 +1219,15 @@ def render_heatmap(tabs_data):
         y=y_labels,
         text=text_matrix,
         texttemplate="%{text}",
-        textfont=dict(size=11, color="white", family="Arial"),
+        textfont=dict(size=10, color="white", family="Arial"),
         colorscale=colorscale,
         zmin=zmin,
         zmax=zmax,
         showscale=True,
         colorbar=dict(
             title="%",
-            thickness=14,
-            len=0.8,
+            thickness=12,
+            len=0.7,
             ticksuffix="%",
             tickfont=dict(size=11, color="#1e293b"),
         ),
@@ -1230,21 +1238,23 @@ def render_heatmap(tabs_data):
     fig.update_layout(
         plot_bgcolor="#ffffff",
         paper_bgcolor="#f8f9fa",
-        font=dict(color="#1e293b", size=12),
-        margin=dict(l=320, r=80, t=60, b=20),
+        font=dict(color="#1e293b", size=11),
+        margin=dict(l=260, r=80, t=80, b=20),
         height=fig_h,
+        width=fig_w,
         xaxis=dict(
             side="top",
-            tickfont=dict(size=13, color="#1e293b", family="Arial"),
+            tickfont=dict(size=12, color="#1e293b", family="Arial"),
             gridcolor="rgba(0,0,0,0.05)",
+            tickangle=0,
         ),
         yaxis=dict(
-            tickfont=dict(size=11, color="#1e293b", family="Arial"),
+            tickfont=dict(size=10, color="#1e293b", family="Arial"),
             autorange="reversed",
             gridcolor="rgba(0,0,0,0.05)",
         ),
     )
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, use_container_width=False)
 
     # ── Sortable data table below heatmap ──
     st.markdown("<div class='section-hdr'>Data table</div>", unsafe_allow_html=True)
