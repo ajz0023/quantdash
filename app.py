@@ -207,9 +207,18 @@ def parse_config(cfg_df, ret_df):
     return cfg
 
 def get_month_cols(df):
-    """Return columns that match Mon-YYYY format."""
-    return [c for c in df.columns if pd.to_datetime(c, format="%b-%Y", errors="coerce") is not pd.NaT
-            and pd.to_datetime(c, format="%b-%Y", errors="coerce") != pd.NaT]
+    """Return columns that match Mon-YYYY format, sorted chronologically."""
+    cols = []
+    for c in df.columns:
+        try:
+            parsed = pd.to_datetime(str(c).strip(), format="%b-%Y", errors="coerce")
+            if parsed is not None and not pd.isna(parsed):
+                cols.append(c)
+        except:
+            pass
+    # Sort chronologically
+    cols.sort(key=lambda x: pd.to_datetime(x, format="%b-%Y", errors="coerce"))
+    return cols
 
 def parse_returns_row(row, month_cols):
     """Parse a returns row into a Series indexed by month."""
@@ -750,9 +759,10 @@ def render_heatmap(cfg, tabs_data, month_cols):
         # Include all years from start up to and including current year
         # Current year shows compounded return of available months so far
         years = list(range(start_year, cur_year + 1))
-        col_labels = [str(y) for y in years]  # current year is rightmost
+        col_labels = [f"{y} (YTD)" if y == cur_year else str(y) for y in years]
+        year_map = {f"{y} (YTD)" if y == cur_year else str(y): y for y in years}
         def get_val(r, col):
-            yr = int(col)
+            yr = year_map.get(col, int(col) if col.isdigit() else cur_year)
             yr_rets = r["rets"][[m for m in r["rets"].index if m.endswith(f"-{yr}")]].dropna()
             return (1 + yr_rets).prod() - 1 if not yr_rets.empty else np.nan
     else:
@@ -767,7 +777,8 @@ def render_heatmap(cfg, tabs_data, month_cols):
             valid = r["rets"].dropna()
             return (1 + valid).prod() - 1 if not valid.empty else np.nan
         else:
-            yr_rets = r["rets"][[m for m in r["rets"].index if m.endswith(f"-{selected_year}")]].dropna()
+            yr_rets = r["rets"][[m for m in r["rets"].index
+                                  if str(m).endswith(f"-{selected_year}")]].dropna()
             return (1 + yr_rets).prod() - 1 if not yr_rets.empty else np.nan
 
     # Build matrix for heatmap
