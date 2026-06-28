@@ -694,8 +694,8 @@ def render_overview(cfg, tabs_data, month_cols):
 # ══════════════════════════════════════════
 def render_ranking(cfg, tabs_data, month_cols):
     ret_df = tabs_data["Returns"]
-    bt_df = tabs_data["Backtest"]
-    fx_df = tabs_data["FX"]
+    bt_df  = tabs_data["Backtest"]
+    fx_df  = tabs_data["FX"]
 
     c1, c2 = st.columns([3, 2])
     with c1:
@@ -703,40 +703,43 @@ def render_ranking(cfg, tabs_data, month_cols):
     with c2:
         mine_only = st.checkbox("My strategies only", key="rank_mine")
 
-    # Build scored rows
+    # ── Build scored rows using live metrics ──
     scored = []
     for _, row in ret_df.iterrows():
         is_mine = str(row.get("IsMine","")).strip().upper() in ["TRUE","1","YES"]
         if mine_only and not is_mine:
             continue
-        ccy = str(row.get("Currency","USD"))
+        ccy  = str(row.get("Currency","USD"))
         name = str(row.get("Strategy",""))
         rets = parse_returns_row(row, month_cols)
         rets_usd = to_usd(rets, ccy, fx_df)
         sliced = slice_period(rets_usd.dropna(), period)
         m = calc_metrics(sliced, cfg["rf_rate"])
 
-        # Backtest summary
         bt_row = bt_df[bt_df["Strategy"]==name] if not bt_df.empty and "Strategy" in bt_df.columns else pd.DataFrame()
-        bt_cagr = float(bt_row.iloc[0].get("CAGR",np.nan))/100 if not bt_row.empty and pd.notna(bt_row.iloc[0].get("CAGR")) else np.nan
-        bt_sharpe = float(bt_row.iloc[0].get("Sharpe",np.nan)) if not bt_row.empty and pd.notna(bt_row.iloc[0].get("Sharpe")) else np.nan
-        bt_maxdd = float(bt_row.iloc[0].get("MaxDD",np.nan))/100 if not bt_row.empty and pd.notna(bt_row.iloc[0].get("MaxDD")) else np.nan
-        bt_vol = float(bt_row.iloc[0].get("AnnVol",np.nan))/100 if not bt_row.empty and pd.notna(bt_row.iloc[0].get("AnnVol")) else np.nan
+        def bt_val(col, div=1):
+            if bt_row.empty: return np.nan
+            v = bt_row.iloc[0].get(col, np.nan)
+            return float(v)/div if pd.notna(v) else np.nan
 
         scored.append({
-            "Strategy": name,
-            "Investor": str(row.get("Investor","-")),
+            "Strategy": name, "Investor": str(row.get("Investor","-")),
             "IsMine": is_mine,
-            "Return": m.get("total", np.nan),
-            "CAGR": m.get("cagr", np.nan),
-            "Sharpe": m.get("sharpe", np.nan),
-            "Max DD": m.get("maxdd", np.nan),
-            "Ann. Vol": m.get("vol", np.nan),
-            "Months": m.get("n", 0),
-            "_cagr": m.get("cagr", np.nan),
-            "_sharpe": m.get("sharpe", np.nan),
-            "_maxdd": m.get("maxdd", np.nan),
-            "_vol": m.get("vol", np.nan),
+            "Return":   m.get("total",   np.nan),
+            "CAGR":     m.get("cagr",    np.nan),
+            "Sharpe":   m.get("sharpe",  np.nan),
+            "Max DD":   m.get("maxdd",   np.nan),
+            "Ann. Vol": m.get("vol",     np.nan),
+            "Months":   m.get("n", 0),
+            "_cagr":    m.get("cagr",    np.nan),
+            "_sharpe":  m.get("sharpe",  np.nan),
+            "_maxdd":   m.get("maxdd",   np.nan),
+            "_vol":     m.get("vol",     np.nan),
+            # Backtest metrics for scatter chart
+            "bt_cagr":   bt_val("CAGR",   100),
+            "bt_sharpe": bt_val("Sharpe",  1),
+            "bt_maxdd":  bt_val("MaxDD",  100),
+            "bt_vol":    bt_val("AnnVol", 100),
         })
 
     if not scored:
@@ -745,7 +748,7 @@ def render_ranking(cfg, tabs_data, month_cols):
 
     scored_df = pd.DataFrame(scored)
 
-    # Calculate Score (normalised 0-100)
+    # ── Score ──
     def norm_col(col, invert=False):
         vals = scored_df[col].replace([np.inf,-np.inf], np.nan).dropna()
         if vals.empty or vals.max() == vals.min():
@@ -761,29 +764,220 @@ def render_ranking(cfg, tabs_data, month_cols):
         norm_col("_maxdd") * w["maxdd"] +
         norm_col("_vol", invert=True) * w["vol"]
     ).round(1)
-
-    # Sort by Score by default
     scored_df = scored_df.sort_values("Score", ascending=False).reset_index(drop=True)
-    scored_df.index += 1  # 1-based ranking
+    scored_df.index += 1
 
-    # Format display
+    # ══════════════════════════════════════════
+    # QUADRANT SCATTER CHART
+    # ══════════════════════════════════════════
+    st.markdown("<div class='section-hdr'>Strategy quadrant — backtest metrics</div>",
+                unsafe_allow_html=True)
+
+    # Score slider
+    min_score = st.slider("Minimum score filter", 0, 100, 0, 5, key="quad_score")
+
+    # Search box
+    search = st.text_input("Search strategy...", "", key="quad_search",
+                           placeholder="Search strategy...")
+
+    # Fixed thresholds
+    CAGR_THRESH = 15   # %
+    VOL_THRESH  = 15   # %
+
+    # Use backtest metrics for chart
+    chart_df = scored_df.copy()
+    chart_df["cagr_pct"] = chart_df["bt_cagr"] * 100
+    chart_df["vol_pct"]  = chart_df["bt_vol"]  * 100
+    chart_df["dd_pct"]   = chart_df["bt_maxdd"].abs() * 100
+    chart_df["sharpe_v"] = chart_df["bt_sharpe"]
+
+    # Drop rows with missing backtest data
+    chart_valid = chart_df.dropna(subset=["cagr_pct","vol_pct","sharpe_v"])
+
+    # Quadrant classification
+    def quadrant(cagr, vol):
+        if cagr >= CAGR_THRESH and vol < VOL_THRESH:   return "Stars"
+        if cagr >= CAGR_THRESH and vol >= VOL_THRESH:  return "Aggressive"
+        if cagr < CAGR_THRESH  and vol < VOL_THRESH:   return "Defensive"
+        return "Laggards"
+
+    chart_valid = chart_valid.copy()
+    chart_valid["Quadrant"] = chart_valid.apply(
+        lambda r: quadrant(r["cagr_pct"], r["vol_pct"]), axis=1)
+
+    # Counts
+    q_counts = chart_valid["Quadrant"].value_counts()
+
+    # Bubble size: Sharpe (normalise to 10-60 range)
+    sharpe_min = chart_valid["sharpe_v"].min()
+    sharpe_max = chart_valid["sharpe_v"].max()
+    sharpe_rng = sharpe_max - sharpe_min if sharpe_max != sharpe_min else 1
+    chart_valid["bubble_size"] = ((chart_valid["sharpe_v"] - sharpe_min) / sharpe_rng * 50 + 10)
+
+    # Border width: Max DD (larger DD = thicker border)
+    dd_max = chart_valid["dd_pct"].max() if not chart_valid.empty else 1
+    chart_valid["border_w"] = (chart_valid["dd_pct"] / dd_max * 6 + 1).clip(1, 7)
+
+    # Colour by quadrant
+    q_colours = {
+        "Stars":      "#3b82f6",  # blue
+        "Aggressive": "#f59e0b",  # amber
+        "Defensive":  "#22c55e",  # green
+        "Laggards":   "#ef4444",  # red
+    }
+
+    fig = go.Figure()
+
+    # Add quadrant background shading
+    x_max = max(chart_valid["vol_pct"].max() * 1.2, VOL_THRESH * 2) if not chart_valid.empty else 40
+    y_max = max(chart_valid["cagr_pct"].max() * 1.2, CAGR_THRESH * 2) if not chart_valid.empty else 60
+    y_min = min(chart_valid["cagr_pct"].min() * 1.1, 0) if not chart_valid.empty else -10
+
+    quad_shapes = [
+        dict(type="rect", x0=0, x1=VOL_THRESH, y0=CAGR_THRESH, y1=y_max,
+             fillcolor="rgba(59,130,246,0.05)", line_width=0),   # Stars
+        dict(type="rect", x0=VOL_THRESH, x1=x_max, y0=CAGR_THRESH, y1=y_max,
+             fillcolor="rgba(245,158,11,0.05)", line_width=0),   # Aggressive
+        dict(type="rect", x0=0, x1=VOL_THRESH, y0=y_min, y1=CAGR_THRESH,
+             fillcolor="rgba(34,197,94,0.05)", line_width=0),    # Defensive
+        dict(type="rect", x0=VOL_THRESH, x1=x_max, y0=y_min, y1=CAGR_THRESH,
+             fillcolor="rgba(239,68,68,0.05)", line_width=0),    # Laggards
+    ]
+
+    # Quadrant labels
+    quad_annotations = [
+        dict(x=VOL_THRESH/2, y=y_max*0.95, text="<b>Stars</b>",
+             showarrow=False, font=dict(color="#3b82f6", size=13)),
+        dict(x=(VOL_THRESH+x_max)/2, y=y_max*0.95, text="<b>Aggressive</b>",
+             showarrow=False, font=dict(color="#f59e0b", size=13)),
+        dict(x=VOL_THRESH/2, y=y_min+(CAGR_THRESH-y_min)*0.1, text="<b>Defensive</b>",
+             showarrow=False, font=dict(color="#22c55e", size=13)),
+        dict(x=(VOL_THRESH+x_max)/2, y=y_min+(CAGR_THRESH-y_min)*0.1, text="<b>Laggards</b>",
+             showarrow=False, font=dict(color="#ef4444", size=13)),
+    ]
+
+    # Plot each quadrant as separate trace for legend
+    for quad, colour in q_colours.items():
+        sub = chart_valid[chart_valid["Quadrant"] == quad].copy()
+        if sub.empty:
+            continue
+
+        # Determine opacity: greyed if below min score or not matching search
+        opacities = []
+        for _, r in sub.iterrows():
+            score_ok  = r["Score"] >= min_score
+            search_ok = search.lower() in r["Strategy"].lower() if search else True
+            opacities.append(0.85 if (score_ok and search_ok) else 0.12)
+
+        # Hover text
+        hover = sub.apply(lambda r:
+            f"<b>{r['Strategy']}</b><br>"
+            f"Investor: {r['Investor']}<br>"
+            f"CAGR: {r['cagr_pct']:.1f}%<br>"
+            f"Vol: {r['vol_pct']:.1f}%<br>"
+            f"Sharpe: {r['sharpe_v']:.2f}<br>"
+            f"Max DD: {r['dd_pct']:.1f}%<br>"
+            f"Score: {r['Score']:.1f}", axis=1)
+
+        # Truncated labels
+        labels = sub["Strategy"].apply(lambda s: s[:14]+"..." if len(s)>14 else s)
+
+        fig.add_trace(go.Scatter(
+            x=sub["vol_pct"],
+            y=sub["cagr_pct"],
+            mode="markers+text",
+            name=quad,
+            text=labels,
+            textposition="top center",
+            textfont=dict(size=9, color="#1e293b"),
+            hovertemplate=hover + "<extra></extra>",
+            marker=dict(
+                size=sub["bubble_size"],
+                color=[colour]*len(sub),
+                opacity=opacities,
+                line=dict(
+                    color=[colour]*len(sub),
+                    width=sub["border_w"].tolist(),
+                ),
+                sizemode="diameter",
+            ),
+        ))
+
+    # Threshold lines
+    fig.add_hline(y=CAGR_THRESH, line_dash="dash", line_color="#94a3b8", line_width=1)
+    fig.add_vline(x=VOL_THRESH,  line_dash="dash", line_color="#94a3b8", line_width=1)
+
+    fig.update_layout(
+        plot_bgcolor="#ffffff", paper_bgcolor="#f8f9fa",
+        font=dict(color="#1e293b", size=11),
+        height=520,
+        margin=dict(l=60, r=40, t=40, b=60),
+        xaxis=dict(
+            title="Annualised volatility (%)",
+            ticksuffix="%",
+            gridcolor="#e2e8f0",
+            zeroline=False,
+            range=[0, x_max],
+        ),
+        yaxis=dict(
+            title="CAGR (%)",
+            ticksuffix="%",
+            gridcolor="#e2e8f0",
+            zeroline=False,
+            range=[y_min, y_max],
+        ),
+        legend=dict(
+            orientation="h", yanchor="bottom", y=-0.18,
+            xanchor="left", x=0,
+            font=dict(size=12),
+        ),
+        showlegend=True,
+        annotations=quad_annotations,
+        shapes=quad_shapes,
+    )
+    st.plotly_chart(fig, use_container_width=True)
+
+    # Legend footnotes
+    n_stars = q_counts.get("Stars", 0)
+    n_agg   = q_counts.get("Aggressive", 0)
+    n_def   = q_counts.get("Defensive", 0)
+    n_lag   = q_counts.get("Laggards", 0)
+    st.caption(
+        f"Showing {len(chart_valid)} strategies  |  "
+        f"⬤ Stars: {n_stars}  ⬤ Aggressive: {n_agg}  "
+        f"⬤ Defensive: {n_def}  ⬤ Laggards: {n_lag}  |  "
+        f"Bubble size = Sharpe ratio  |  Border thickness = Max drawdown magnitude  |  "
+        f"Thresholds: CAGR {CAGR_THRESH}%, Vol {VOL_THRESH}%"
+    )
+
+    st.divider()
+
+    # ══════════════════════════════════════════
+    # RANKING TABLE
+    # ══════════════════════════════════════════
+    st.markdown("<div class='section-hdr'>Strategy ranking table</div>",
+                unsafe_allow_html=True)
+
     display = pd.DataFrame({
-        "#": scored_df.index,
-        "Strategy": scored_df.apply(lambda r: f"{r['Strategy']} ★" if r["IsMine"] else r["Strategy"], axis=1),
+        "#":        scored_df.index,
+        "Strategy": scored_df.apply(
+            lambda r: f"{r['Strategy']} ★" if r["IsMine"] else r["Strategy"], axis=1),
         "Investor": scored_df["Investor"],
-        "Return": scored_df["Return"].apply(lambda v: fmt_pct(v) if pd.notna(v) else "-"),
-        "CAGR": scored_df["CAGR"].apply(lambda v: fmt_pct(v) if pd.notna(v) else "-"),
-        "Sharpe": scored_df["Sharpe"].apply(lambda v: f"{v:.2f}" if pd.notna(v) else "-"),
-        "Max DD": scored_df["Max DD"].apply(lambda v: fmt_pct(v, sign=False) if pd.notna(v) else "-"),
+        "Return":   scored_df["Return"].apply(lambda v: fmt_pct(v) if pd.notna(v) else "-"),
+        "CAGR":     scored_df["CAGR"].apply(lambda v: fmt_pct(v) if pd.notna(v) else "-"),
+        "Sharpe":   scored_df["Sharpe"].apply(lambda v: f"{v:.2f}" if pd.notna(v) else "-"),
+        "Max DD":   scored_df["Max DD"].apply(lambda v: fmt_pct(v, sign=False) if pd.notna(v) else "-"),
         "Ann. Vol": scored_df["Ann. Vol"].apply(lambda v: fmt_pct(v, sign=False) if pd.notna(v) else "-"),
-        "Months": scored_df["Months"],
-        "Score": scored_df["Score"].apply(lambda v: f"{v:.1f}" if pd.notna(v) else "-"),
+        "Months":   scored_df["Months"],
+        "Score":    scored_df["Score"].apply(lambda v: f"{v:.1f}" if pd.notna(v) else "-"),
     })
 
     st.dataframe(display, use_container_width=True, hide_index=True,
-                 column_config={"#": st.column_config.NumberColumn(width="small"),
-                                "Score": st.column_config.TextColumn(width="small")})
-    st.caption("★ = My strategy  |  Score = weighted composite (CAGR 40%, Sharpe 30%, Max DD 20%, Vol 10%)  |  Click column headers to sort")
+                 column_config={
+                     "#":     st.column_config.NumberColumn(width="small"),
+                     "Score": st.column_config.TextColumn(width="small"),
+                 })
+    st.caption("★ = My strategy  |  Score = CAGR 40% + Sharpe 30% + Max DD 20% + Vol 10%  |  Click headers to sort")
 
 
 # ══════════════════════════════════════════
