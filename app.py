@@ -44,9 +44,10 @@ st.markdown("""
     [data-testid="stMetricDelta"] { font-size: 12px !important; }
 
     /* Tab styling */
-    .stTabs [data-baseweb="tab-list"] { gap: 8px; background-color: #ffffff; border-radius: 10px; padding: 4px; border: 1px solid #e2e8f0; }
-    .stTabs [data-baseweb="tab"] { border-radius: 6px; color: #64748b; font-size: 13px; padding: 6px 16px; }
-    .stTabs [aria-selected="true"] { background-color: #1e40af !important; color: #ffffff !important; }
+    .stTabs [data-baseweb="tab-list"] { gap: 4px; background-color: #eef2f7; border-radius: 10px; padding: 4px; border: 1px solid #dde3ed; }
+    .stTabs [data-baseweb="tab"] { border-radius: 6px; color: #475569; font-size: 13px; font-weight: 500; padding: 7px 18px; background-color: transparent; }
+    .stTabs [data-baseweb="tab"]:hover { background-color: #ffffff; color: #1e293b; }
+    .stTabs [aria-selected="true"] { background-color: #ffffff !important; color: #1e40af !important; font-weight: 600 !important; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
 
     /* Dataframe */
     [data-testid="stDataFrame"] { border-radius: 10px; }
