@@ -208,16 +208,23 @@ def parse_config(cfg_df, ret_df):
 
 def get_month_cols(df):
     """Return columns that match Mon-YYYY format, sorted chronologically."""
+    import re
     cols = []
+    month_pattern = re.compile(
+        r'^(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)-\d{4}$',
+        re.IGNORECASE
+    )
     for c in df.columns:
-        try:
-            parsed = pd.to_datetime(str(c).strip(), format="%b-%Y", errors="coerce")
-            if parsed is not None and not pd.isna(parsed):
-                cols.append(c)
-        except:
-            pass
+        c_str = str(c).strip()
+        if month_pattern.match(c_str):
+            cols.append(c_str)
     # Sort chronologically
-    cols.sort(key=lambda x: pd.to_datetime(x, format="%b-%Y", errors="coerce"))
+    month_order = ['Jan','Feb','Mar','Apr','May','Jun',
+                   'Jul','Aug','Sep','Oct','Nov','Dec']
+    def sort_key(m):
+        parts = m.split('-')
+        return (int(parts[1]), month_order.index(parts[0]))
+    cols.sort(key=sort_key)
     return cols
 
 def parse_returns_row(row, month_cols):
@@ -695,6 +702,14 @@ def render_heatmap(cfg, tabs_data, month_cols):
     if not full_ret.empty:
         month_cols = get_month_cols(full_ret)
     bm_month_cols = get_month_cols(bm_df) if not bm_df.empty else month_cols
+    # Use the longer of the two col lists
+    if len(bm_month_cols) > len(month_cols):
+        month_cols = bm_month_cols
+    # Debug info
+    with st.expander("Debug: column detection", expanded=False):
+        st.write(f"Strategy month cols ({len(month_cols)}): {month_cols[-6:] if month_cols else 'none'}")
+        st.write(f"Benchmark month cols ({len(bm_month_cols)}): {bm_month_cols[-6:] if bm_month_cols else 'none'}")
+        st.write(f"Full ret shape: {full_ret.shape if not full_ret.empty else 'empty'}")
 
     # Controls
     c1, c2, c3 = st.columns([2, 2, 2])
