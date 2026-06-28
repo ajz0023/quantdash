@@ -997,14 +997,7 @@ def render_heatmap(tabs_data):
         return
 
     # Debug info
-    with st.expander("Debug info (click to expand)", expanded=True):
-        st.write(f"**Total month cols detected:** {len(month_cols)}")
-        st.write(f"**First 3:** {month_cols[:3]}")
-        st.write(f"**Last 6:** {month_cols[-6:]}")
-        st.write(f"**years_in_data:** {sorted(set(int(m.split('-')[1]) for m in month_cols))}")
-        st.write(f"**cur_year:** {datetime.now().year}")
-        st.write(f"**Raw col sample (last 10):** {[str(c) for c in all_cols[-10:]]}")
-
+    
     # ── Build FX lookup: month -> {AUDUSD, INRUSD} ──
     fx_map = {}
     if not fx_df.empty and "Month" in fx_df.columns:
@@ -1112,13 +1105,6 @@ def render_heatmap(tabs_data):
 
     display_df = pd.DataFrame(display_rows)
 
-    # Verify columns
-    with st.expander("Debug: display_df columns", expanded=True):
-        st.write(f"display_df columns: {list(display_df.columns)}")
-        st.write(f"display_df shape: {display_df.shape}")
-        if len(display_df) > 0:
-            st.write(f"First row sample: {dict(list(display_df.iloc[0].items())[-5:])}")
-
     # ── Sort state ──
     yr_labels = [label for _, label in year_cols]
     all_sortable = ["Investor", "Strategy / Benchmark", "Type"] + yr_labels
@@ -1152,33 +1138,26 @@ def render_heatmap(tabs_data):
         ).reset_index(drop=True)
 
     # ── Build Plotly heatmap ──
-    z_cols = yr_labels  # all year column labels including YTD
+    # Use display_df columns directly as z_cols — guaranteed to match
+    numeric_cols = [c for c in display_df.columns
+                    if c not in ["Investor", "Strategy / Benchmark", "Type"]]
 
-    # Apply sort to display_df before building matrices
+    # Apply sort
     if sort_col in display_df.columns:
         display_df = display_df.sort_values(
             sort_col, ascending=sort_asc, na_position="last"
         ).reset_index(drop=True)
 
-    # Build all matrices from sorted display_df
-    z_matrix = []
+    z_cols = numeric_cols  # e.g. ['2019','2020',...,'2025','2026 (YTD)']
+    z_matrix = display_df[z_cols].values.tolist()
+    y_labels  = [f"{r['Investor']}  |  {r['Strategy / Benchmark']}"
+                 for _, r in display_df.iterrows()]
     text_matrix = []
-    y_labels = []
-
-    for _, row in display_df.iterrows():
-        y_labels.append(f"{row['Investor']}  |  {row['Strategy / Benchmark']}")
-        row_z = []
-        row_t = []
-        for col in z_cols:
-            v = row.get(col, np.nan)
-            if pd.notna(v) and not np.isnan(float(v)):
-                row_z.append(float(v))
-                row_t.append(f"{float(v):+.1f}%")
-            else:
-                row_z.append(np.nan)
-                row_t.append("-")
-        z_matrix.append(row_z)
-        text_matrix.append(row_t)
+    for row_vals in z_matrix:
+        text_matrix.append([
+            f"{v:+.1f}%" if (v is not None and not np.isnan(float(v))) else "-"
+            for v in row_vals
+        ])
 
     # Absolute colour scale:
     # Negative values -> red shades
