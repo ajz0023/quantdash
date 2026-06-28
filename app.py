@@ -572,23 +572,36 @@ def render_overview(cfg, tabs_data, month_cols):
             fmt_pivot = pivot.map(lambda v: f"{v*100:+.1f}%" if pd.notna(v) else "—")
 
             # Color the cells using plotly heatmap
+            hm_colorscale = [
+                [0.0,  "#c0392b"],[0.35, "#e74c3c"],
+                [0.47, "#f39c12"],[0.50, "#f1c40f"],
+                [0.53, "#2ecc71"],[0.65, "#27ae60"],
+                [1.0,  "#1a6b3a"],
+            ]
+            zvals = pivot.values * 100
+            abs_max = max(abs(np.nanmin(zvals)), abs(np.nanmax(zvals)), 1)
             fig_hm = go.Figure(go.Heatmap(
-                z=pivot.values * 100,
+                z=zvals,
                 x=list(pivot.columns),
                 y=[str(y) for y in pivot.index],
                 text=fmt_pivot.values,
                 texttemplate="%{text}",
-                colorscale=[[0,"#f85149"],[0.5,"#21262d"],[1,"#3fb950"]],
+                textfont=dict(size=11, color="white"),
+                colorscale=hm_colorscale,
                 zmid=0,
+                zmin=-abs_max,
+                zmax=abs_max,
                 showscale=False,
                 hoverongaps=False,
+                xgap=2, ygap=2,
             ))
             fig_hm.update_layout(
-                plot_bgcolor="#0d1117", paper_bgcolor="#0d1117",
+                plot_bgcolor="#0d1117", paper_bgcolor="#161b22",
                 font=dict(color="#e6edf3", size=11),
-                margin=dict(l=40,r=10,t=10,b=10),
-                height=max(200, len(pivot)*32+60),
-                xaxis=dict(side="top"),
+                margin=dict(l=50,r=20,t=50,b=10),
+                height=max(200, len(pivot)*34+80),
+                xaxis=dict(side="top", tickfont=dict(size=11, color="#e6edf3")),
+                yaxis=dict(tickfont=dict(size=11, color="#e6edf3")),
             )
             st.plotly_chart(fig_hm, use_container_width=True)
 
@@ -694,44 +707,81 @@ def render_heatmap(cfg, tabs_data, month_cols):
 
     all_cols = col_labels + ["Full year"]
 
+    # Build heatmap with red/yellow/green colorscale
+    # colorscale: red for negative, yellow near zero, green for positive
+    colorscale = [
+        [0.0,  "#c0392b"],   # deep red  (most negative)
+        [0.35, "#e74c3c"],   # red
+        [0.47, "#f39c12"],   # orange-yellow (approaching zero)
+        [0.50, "#f1c40f"],   # yellow (zero)
+        [0.53, "#2ecc71"],   # light green (just above zero)
+        [0.65, "#27ae60"],   # green
+        [1.0,  "#1a6b3a"],   # deep green (most positive)
+    ]
+
+    # Determine zmin/zmax symmetrically
+    flat_vals = [v for row in matrix for v in row if v is not None and not np.isnan(v)]
+    if flat_vals:
+        abs_max = max(abs(min(flat_vals)), abs(max(flat_vals)), 1)
+    else:
+        abs_max = 10
+
     fig = go.Figure(go.Heatmap(
         z=matrix,
         x=all_cols,
         y=row_labels,
         text=text_matrix,
         texttemplate="%{text}",
-        colorscale=[[0,"#f85149"],[0.5,"#21262d"],[1,"#3fb950"]],
+        textfont=dict(size=10, color="white"),
+        colorscale=colorscale,
         zmid=0,
-        showscale=False,
+        zmin=-abs_max,
+        zmax=abs_max,
+        showscale=True,
+        colorbar=dict(
+            thickness=12, len=0.8,
+            tickfont=dict(color="#e6edf3", size=10),
+            ticksuffix="%",
+        ),
         hoverongaps=False,
-        xgap=1, ygap=1,
+        xgap=2, ygap=2,
     ))
     fig.update_layout(
-        plot_bgcolor="#0d1117", paper_bgcolor="#0d1117",
+        plot_bgcolor="#0d1117", paper_bgcolor="#161b22",
         font=dict(color="#e6edf3", size=10),
-        margin=dict(l=10,r=10,t=40,b=10),
-        height=max(300, len(all_rows)*28+80),
-        xaxis=dict(side="top", tickfont=dict(size=10)),
-        yaxis=dict(tickfont=dict(size=10), autorange="reversed"),
+        margin=dict(l=220, r=80, t=60, b=20),
+        height=max(350, len(all_rows)*30+100),
+        xaxis=dict(
+            side="top", tickfont=dict(size=11, color="#e6edf3"),
+            gridcolor="rgba(255,255,255,0.05)"
+        ),
+        yaxis=dict(
+            tickfont=dict(size=10, color="#e6edf3"),
+            autorange="reversed",
+            gridcolor="rgba(255,255,255,0.05)"
+        ),
     )
     st.plotly_chart(fig, use_container_width=True)
 
-    # Sortable table below heatmap
-    st.markdown("<div class='section-hdr'>Data table — click column headers to sort</div>", unsafe_allow_html=True)
+    # Sortable summary table
+    st.markdown("<div class='section-hdr'>Summary table — click column headers to sort</div>", unsafe_allow_html=True)
     tbl_rows = []
     for i, r in enumerate(all_rows):
         fy = get_full_year(r)
+        mine_tag = " ★" if r["IsMine"] else ""
         tbl_rows.append({
             "Investor": r["Investor"],
-            "Strategy / Benchmark": r["Name"],
+            "Strategy / Benchmark": r["Name"] + mine_tag,
             "Type": r["Type"],
             "Currency": r["Currency"],
-            "Full year": fmt_pct(fy) if not np.isnan(fy) else "—",
-            "_fy": fy if not np.isnan(fy) else -999,
+            "Full year": fmt_pct(fy) if pd.notna(fy) and not np.isnan(fy) else "—",
+            "_fy_sort": fy if pd.notna(fy) and not np.isnan(fy) else -999,
         })
-    tbl_df = pd.DataFrame(tbl_rows)
-    st.dataframe(tbl_df[["Investor","Strategy / Benchmark","Type","Currency","Full year"]],
-                 use_container_width=True, hide_index=True)
+    tbl_df = pd.DataFrame(tbl_rows).sort_values("_fy_sort", ascending=False)
+    st.dataframe(
+        tbl_df[["Investor","Strategy / Benchmark","Type","Currency","Full year"]],
+        use_container_width=True, hide_index=True
+    )
 
 # ══════════════════════════════════════════
 # TAB 3 — RANKING
