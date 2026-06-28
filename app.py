@@ -383,7 +383,9 @@ def main():
         return
 
     cfg = parse_config(tabs_data["Config"], tabs_data["Returns"])
-    month_cols = get_month_cols(tabs_data["Returns"])
+    # Get month cols from full Monthly_Returns tab to include all months inc 2026
+    full_ret = tabs_data.get("Monthly_Returns", tabs_data.get("Returns", pd.DataFrame()))
+    month_cols = get_month_cols(full_ret) if not full_ret.empty else get_month_cols(tabs_data["Returns"])
 
     with tab1:
         render_portfolio(tabs_data)
@@ -679,7 +681,11 @@ def render_heatmap(cfg, tabs_data, month_cols):
     ret_df = tabs_data["Returns"]
     bm_df = tabs_data["Benchmarks"]
     fx_df = tabs_data["FX"]
-    bm_month_cols = get_month_cols(bm_df)
+    # Use full Monthly_Returns tab for month cols to ensure current year included
+    full_ret = tabs_data.get("Monthly_Returns", pd.DataFrame())
+    if not full_ret.empty:
+        month_cols = get_month_cols(full_ret)
+    bm_month_cols = get_month_cols(bm_df) if not bm_df.empty else month_cols
 
     # Controls
     c1, c2, c3 = st.columns([2, 2, 2])
