@@ -124,18 +124,30 @@ def parse_config(cfg_df, ret_df):
             })
 
     cfg["strategies"] = strategies
+    def safe_float(val, default):
+        try:
+            return float(val or default)
+        except (ValueError, TypeError):
+            return default
+
     cfg["weights"] = {
-        "cagr":   float(cfg.get("Weight_CAGR",   0.40)),
-        "sharpe": float(cfg.get("Weight_Sharpe", 0.30)),
-        "maxdd":  float(cfg.get("Weight_MaxDD",  0.20)),
-        "vol":    float(cfg.get("Weight_Vol",    0.10)),
+        "cagr":   safe_float(cfg.get("Weight_CAGR"),   0.40),
+        "sharpe": safe_float(cfg.get("Weight_Sharpe"), 0.30),
+        "maxdd":  safe_float(cfg.get("Weight_MaxDD"),  0.20),
+        "vol":    safe_float(cfg.get("Weight_Vol"),    0.10),
     }
     # Normalise weights
     w_sum = sum(cfg["weights"].values())
     if w_sum > 0:
         cfg["weights"] = {k: v/w_sum for k, v in cfg["weights"].items()}
-    cfg["heatmap_start"] = int(cfg.get("HeatmapStartYear", 2018))
-    cfg["rf_rate"] = float(cfg.get("RiskFreeRate", 0.04))
+    try:
+        cfg["heatmap_start"] = int(float(cfg.get("HeatmapStartYear", 2018) or 2018))
+    except (ValueError, TypeError):
+        cfg["heatmap_start"] = 2018
+    try:
+        cfg["rf_rate"] = float(cfg.get("RiskFreeRate", 0.04) or 0.04)
+    except (ValueError, TypeError):
+        cfg["rf_rate"] = 0.04
     return cfg
 
 def get_month_cols(df):
