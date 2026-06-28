@@ -741,12 +741,14 @@ def render_heatmap(cfg, tabs_data, month_cols):
     months_order = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"]
 
     if selected_year == "All years":
-        years = list(range(start_year, cur_year+1))
-        col_labels = [str(y) for y in years]
+        # Include all years from start up to and including current year
+        # Current year shows compounded return of available months so far
+        years = list(range(start_year, cur_year + 1))
+        col_labels = [str(y) for y in years]  # current year is rightmost
         def get_val(r, col):
             yr = int(col)
             yr_rets = r["rets"][[m for m in r["rets"].index if m.endswith(f"-{yr}")]].dropna()
-            return (1+yr_rets).prod()-1 if not yr_rets.empty else np.nan
+            return (1 + yr_rets).prod() - 1 if not yr_rets.empty else np.nan
     else:
         col_labels = months_order
         def get_val(r, col):
@@ -757,10 +759,10 @@ def render_heatmap(cfg, tabs_data, month_cols):
     def get_full_year(r):
         if selected_year == "All years":
             valid = r["rets"].dropna()
-            return (1+valid).prod()-1 if not valid.empty else np.nan
+            return (1 + valid).prod() - 1 if not valid.empty else np.nan
         else:
             yr_rets = r["rets"][[m for m in r["rets"].index if m.endswith(f"-{selected_year}")]].dropna()
-            return (1+yr_rets).prod()-1 if not yr_rets.empty else np.nan
+            return (1 + yr_rets).prod() - 1 if not yr_rets.empty else np.nan
 
     # Build matrix for heatmap
     row_labels = []
@@ -784,34 +786,37 @@ def render_heatmap(cfg, tabs_data, month_cols):
 
     all_cols = col_labels + ["Full year"]
 
-    # Column-relative normalisation: rank within each column 0-1
-    # So best in each year = 1 (green), worst = 0 (red), middle = 0.5 (yellow)
-    matrix_arr = np.array([[v if v is not None and not np.isnan(v) else np.nan
-                            for v in row] for row in matrix], dtype=float)
+    # Column-relative normalisation: rank within each column 0->1
+    # Best in each column = 1 (dark green), worst = 0 (dark red), middle = 0.5 (yellow)
+    matrix_arr = np.array(
+        [[v if (v is not None and not np.isnan(v)) else np.nan for v in row]
+         for row in matrix], dtype=float)
 
     norm_matrix = np.full_like(matrix_arr, np.nan)
     for col_idx in range(matrix_arr.shape[1]):
         col = matrix_arr[:, col_idx]
         valid = col[~np.isnan(col)]
-        if len(valid) < 2:
-            norm_matrix[:, col_idx] = 0.5
+        if len(valid) == 0:
             continue
-        col_min, col_max = valid.min(), valid.max()
-        rng = col_max - col_min
-        if rng == 0:
-            norm_matrix[:, col_idx] = 0.5
+        elif len(valid) == 1:
+            norm_matrix[:, col_idx] = np.where(np.isnan(col), np.nan, 0.5)
         else:
-            norm_matrix[:, col_idx] = (col - col_min) / rng
+            col_min, col_max = valid.min(), valid.max()
+            rng = col_max - col_min
+            if rng == 0:
+                norm_matrix[:, col_idx] = np.where(np.isnan(col), np.nan, 0.5)
+            else:
+                norm_matrix[:, col_idx] = (col - col_min) / rng
 
-    # Colorscale: red → yellow → green (0 → 0.5 → 1)
+    # Colorscale: dark red -> orange -> yellow -> green -> dark green
     colorscale = [
-        [0.0,  "#c0392b"],  # deep red (lowest in column)
-        [0.25, "#e74c3c"],  # red
-        [0.45, "#f39c12"],  # orange
-        [0.5,  "#f1c40f"],  # yellow (middle)
-        [0.55, "#2ecc71"],  # light green
-        [0.75, "#27ae60"],  # green
-        [1.0,  "#1a5e38"],  # deep green (highest in column)
+        [0.00, "#8B0000"],
+        [0.20, "#cc2222"],
+        [0.40, "#e67e00"],
+        [0.50, "#f1c40f"],
+        [0.60, "#85c91e"],
+        [0.80, "#27ae60"],
+        [1.00, "#145a32"],
     ]
 
     fig = go.Figure(go.Heatmap(
@@ -829,17 +834,16 @@ def render_heatmap(cfg, tabs_data, month_cols):
     ))
     fig.update_layout(
         plot_bgcolor="#ffffff", paper_bgcolor="#f8f9fa",
-        font=dict(color="#1e293b", size=10),
-        margin=dict(l=220, r=40, t=60, b=20),
-        height=max(350, len(all_rows)*30+100),
+        font=dict(color="#1e293b", size=12),
+        margin=dict(l=230, r=40, t=60, b=20),
+        height=max(350, len(all_rows) * 32 + 100),
         xaxis=dict(side="top", tickfont=dict(size=13, color="#1e293b"),
-                   gridcolor="rgba(255,255,255,0.05)"),
+                   gridcolor="rgba(0,0,0,0.05)"),
         yaxis=dict(tickfont=dict(size=12, color="#1e293b"),
                    autorange="reversed",
-                   gridcolor="rgba(255,255,255,0.05)"),
+                   gridcolor="rgba(0,0,0,0.05)"),
     )
     st.plotly_chart(fig, use_container_width=True)
-
     # Sortable summary table
     st.markdown("<div class='section-hdr'>Summary table - click column headers to sort</div>", unsafe_allow_html=True)
     tbl_rows = []
