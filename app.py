@@ -1159,25 +1159,6 @@ def render_heatmap(tabs_data):
             for v in row_vals
         ])
 
-    # Targeted debug
-    with st.expander("z_matrix debug", expanded=True):
-        st.write(f"z_cols: {z_cols}")
-        st.write(f"z_matrix[0] (first row): {z_matrix[0]}")
-        st.write(f"z_matrix last 3 cols of row 0: {z_matrix[0][-3:]}")
-        st.write(f"text_matrix[0] last 3: {text_matrix[0][-3:]}")
-        # Check if 2025 and 2026 cols have any non-nan
-        col_2025_idx = z_cols.index('2025') if '2025' in z_cols else -1
-        col_2026_idx = next((i for i, c in enumerate(z_cols) if '2026' in c), -1)
-        if col_2025_idx >= 0:
-            vals_2025 = [row[col_2025_idx] for row in z_matrix]
-            non_nan_2025 = [v for v in vals_2025 if v is not None and not np.isnan(float(v))]
-            st.write(f"2025 col (idx {col_2025_idx}): {len(non_nan_2025)} non-nan values out of {len(vals_2025)}")
-            st.write(f"2025 sample values: {vals_2025[:5]}")
-        if col_2026_idx >= 0:
-            vals_2026 = [row[col_2026_idx] for row in z_matrix]
-            non_nan_2026 = [v for v in vals_2026 if v is not None and not np.isnan(float(v))]
-            st.write(f"2026 col (idx {col_2026_idx}): {len(non_nan_2026)} non-nan values out of {len(vals_2026)}")
-            st.write(f"2026 sample values: {vals_2026[:5]}")
 
     # Absolute colour scale:
     # Negative values -> red shades
@@ -1224,9 +1205,7 @@ def render_heatmap(tabs_data):
     n_rows = len(display_df)
     n_cols = len(z_cols)
     cell_h = 28
-    cell_w = 90   # fixed narrow column width
     fig_h = max(400, n_rows * cell_h + 140)
-    fig_w = max(900, 280 + n_cols * cell_w + 100)  # 280 for y-axis labels
 
     fig = go.Figure(go.Heatmap(
         z=z_matrix,
@@ -1254,22 +1233,24 @@ def render_heatmap(tabs_data):
         plot_bgcolor="#ffffff",
         paper_bgcolor="#f8f9fa",
         font=dict(color="#1e293b", size=11),
-        margin=dict(l=260, r=80, t=80, b=20),
+        margin=dict(l=260, r=100, t=80, b=20),
         height=fig_h,
-        width=fig_w,
         xaxis=dict(
             side="top",
             tickfont=dict(size=12, color="#1e293b", family="Arial"),
             gridcolor="rgba(0,0,0,0.05)",
             tickangle=0,
+            constrain="domain",
         ),
         yaxis=dict(
             tickfont=dict(size=10, color="#1e293b", family="Arial"),
             autorange="reversed",
             gridcolor="rgba(0,0,0,0.05)",
+            constrain="domain",
         ),
     )
-    st.plotly_chart(fig, use_container_width=False)
+    # Use container width so all columns are always visible
+    st.plotly_chart(fig, use_container_width=True)
 
     # ── Sortable data table below heatmap ──
     st.markdown("<div class='section-hdr'>Data table</div>", unsafe_allow_html=True)
