@@ -375,21 +375,20 @@ def main():
         st.session_state[SHEET_ID_KEY] = "1qD8I4KDGheqbMXg8_Fia3Qjch5repf383s9DpJCvwTE"
 
     # ── Tabs ──
-    tab1, tab2, tab3, tab4, tab5 = st.tabs([
+    tab1, tab2, tab3, tab4 = st.tabs([
         "1️⃣ Overall Portfolio",
         "2️⃣ Own Strategy Analysis",
-        "3️⃣ Overall Heatmap",
-        "4️⃣ All Strategy Ranking",
+        "3️⃣ All Strategy Ranking",
         "⚙ Setup"
     ])
 
     # ── Load data ──
     sheet_id = st.session_state[SHEET_ID_KEY]
     if not sheet_id:
-        for tab in [tab1, tab2, tab3, tab4]:
+        for tab in [tab1, tab2, tab3]:
             with tab:
                 st.info("Enter your Google Sheet ID in the Setup tab to get started.")
-        with tab5:
+        with tab4:
             render_setup()
         return
 
@@ -408,10 +407,8 @@ def main():
     with tab2:
         render_overview(cfg, tabs_data, month_cols)
     with tab3:
-        render_heatmap(cfg, tabs_data, month_cols)
-    with tab4:
         render_ranking(cfg, tabs_data, month_cols)
-    with tab5:
+    with tab4:
         render_setup()
 
 # ══════════════════════════════════════════
@@ -690,213 +687,6 @@ def render_overview(cfg, tabs_data, month_cols):
             )
             st.plotly_chart(fig_hm, use_container_width=True)
 
-# ══════════════════════════════════════════
-# TAB 2 - HEATMAP
-# ══════════════════════════════════════════
-def render_heatmap(cfg, tabs_data, month_cols):
-    ret_df = tabs_data["Returns"]
-    bm_df = tabs_data["Benchmarks"]
-    fx_df = tabs_data["FX"]
-    # Use full Monthly_Returns tab for month cols to ensure current year included
-    full_ret = tabs_data.get("Monthly_Returns", pd.DataFrame())
-    if not full_ret.empty:
-        month_cols = get_month_cols(full_ret)
-    bm_month_cols = get_month_cols(bm_df) if not bm_df.empty else month_cols
-    # Use the longer of the two col lists
-    if len(bm_month_cols) > len(month_cols):
-        month_cols = bm_month_cols
-    # Debug info
-    with st.expander("Debug: column detection", expanded=False):
-        st.write(f"Strategy month cols ({len(month_cols)}): {month_cols[-6:] if month_cols else 'none'}")
-        st.write(f"Benchmark month cols ({len(bm_month_cols)}): {bm_month_cols[-6:] if bm_month_cols else 'none'}")
-        st.write(f"Full ret shape: {full_ret.shape if not full_ret.empty else 'empty'}")
-
-    # Controls
-    c1, c2, c3 = st.columns([2, 2, 2])
-    start_year = cfg["heatmap_start"]
-    cur_year = datetime.now().year
-    year_options = ["All years"] + [str(y) for y in range(start_year, cur_year+1)]
-    with c1:
-        selected_year = st.selectbox("Year", year_options, key="hm_year")
-    with c2:
-        investors = ["All investors"] + sorted(ret_df["Investor"].dropna().unique().tolist()) if "Investor" in ret_df.columns else ["All investors"]
-        inv_filter = st.selectbox("Investor", investors, key="hm_inv")
-    with c3:
-        mine_only = st.checkbox("My strategies only", key="hm_mine")
-
-    # Build combined data
-    all_rows = []
-
-    # Add benchmarks - now from Returns tab with Type=Benchmark
-    # Benchmark name is in Strategy column
-    if not bm_df.empty:
-        bm_name_col = "Strategy" if "Strategy" in bm_df.columns else "Benchmark"
-        for _, row in bm_df.iterrows():
-            bm_name_val = str(row.get(bm_name_col,"")).strip()
-            if not bm_name_val or bm_name_val == "nan":
-                continue
-            ccy = str(row.get("Currency","USD")).strip()
-            rets = parse_returns_row(row, bm_month_cols)
-            all_rows.append({
-                "Investor": "-", "Name": bm_name_val, "Type": "Benchmark",
-                "Currency": ccy, "IsMine": False, "rets": rets
-            })
-
-    # Add strategies
-    if not ret_df.empty:
-        for _, row in ret_df.iterrows():
-            is_mine = str(row.get("IsMine","")).strip().upper() in ["TRUE","1","YES"]
-            if mine_only and not is_mine:
-                continue
-            if inv_filter != "All investors" and str(row.get("Investor","")) != inv_filter and not (is_mine and inv_filter == "All investors"):
-                if inv_filter != "All investors" and str(row.get("Investor","")) != inv_filter:
-                    pass
-            ccy = str(row.get("Currency","USD"))
-            rets = parse_returns_row(row, month_cols)
-            rets_usd = to_usd(rets, ccy, fx_df)
-            all_rows.append({
-                "Investor": str(row.get("Investor","-")),
-                "Name": str(row.get("Strategy","")),
-                "Type": "Strategy",
-                "Currency": ccy,
-                "IsMine": is_mine,
-                "rets": rets_usd
-            })
-
-    if not all_rows:
-        st.info("No data to display.")
-        return
-
-    # Build display table
-    months_order = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"]
-
-    if selected_year == "All years":
-        # Include all years from start up to and including current year
-        # Current year shows compounded return of available months so far
-        years = list(range(start_year, cur_year + 1))
-        col_labels = [f"{y} (YTD)" if y == cur_year else str(y) for y in years]
-        year_map = {f"{y} (YTD)" if y == cur_year else str(y): y for y in years}
-        def get_val(r, col):
-            yr = year_map.get(col, int(col) if col.isdigit() else cur_year)
-            yr_rets = r["rets"][[m for m in r["rets"].index if m.endswith(f"-{yr}")]].dropna()
-            return (1 + yr_rets).prod() - 1 if not yr_rets.empty else np.nan
-    else:
-        col_labels = months_order
-        def get_val(r, col):
-            key = f"{col}-{selected_year}"
-            v = r["rets"].get(key, np.nan)
-            return v
-
-    def get_full_year(r):
-        if selected_year == "All years":
-            valid = r["rets"].dropna()
-            return (1 + valid).prod() - 1 if not valid.empty else np.nan
-        else:
-            yr_rets = r["rets"][[m for m in r["rets"].index
-                                  if str(m).endswith(f"-{selected_year}")]].dropna()
-            return (1 + yr_rets).prod() - 1 if not yr_rets.empty else np.nan
-
-    # Build matrix for heatmap
-    row_labels = []
-    matrix = []
-    text_matrix = []
-    is_mine_list = []
-    type_list = []
-
-    for r in all_rows:
-        row_labels.append(f"{r['Investor']} | {r['Name']}")
-        is_mine_list.append(r["IsMine"])
-        type_list.append(r["Type"])
-        vals = [get_val(r, c) for c in col_labels] + [get_full_year(r)]
-        def safe_val(v):
-            if v is None: return np.nan
-            try: return float(v)
-            except: return np.nan
-        vals = [safe_val(v) for v in vals]
-        matrix.append([v*100 if not np.isnan(v) else np.nan for v in vals])
-        text_matrix.append([f"{v*100:+.1f}%" if not np.isnan(v) else "-" for v in vals])
-
-    all_cols = col_labels + ["Full year"]
-
-    # Column-relative normalisation: rank within each column 0->1
-    # Best in each column = 1 (dark green), worst = 0 (dark red), middle = 0.5 (yellow)
-    matrix_arr = np.array(
-        [[v if (v is not None and not np.isnan(v)) else np.nan for v in row]
-         for row in matrix], dtype=float)
-
-    norm_matrix = np.full_like(matrix_arr, np.nan)
-    for col_idx in range(matrix_arr.shape[1]):
-        col = matrix_arr[:, col_idx]
-        valid = col[~np.isnan(col)]
-        if len(valid) == 0:
-            continue
-        elif len(valid) == 1:
-            norm_matrix[:, col_idx] = np.where(np.isnan(col), np.nan, 0.5)
-        else:
-            col_min, col_max = valid.min(), valid.max()
-            rng = col_max - col_min
-            if rng == 0:
-                norm_matrix[:, col_idx] = np.where(np.isnan(col), np.nan, 0.5)
-            else:
-                norm_matrix[:, col_idx] = (col - col_min) / rng
-
-    # Colorscale: dark red -> orange -> yellow -> green -> dark green
-    colorscale = [
-        [0.00, "#8B0000"],
-        [0.20, "#cc2222"],
-        [0.40, "#e67e00"],
-        [0.50, "#f1c40f"],
-        [0.60, "#85c91e"],
-        [0.80, "#27ae60"],
-        [1.00, "#145a32"],
-    ]
-
-    fig = go.Figure(go.Heatmap(
-        z=norm_matrix.tolist(),
-        x=all_cols,
-        y=row_labels,
-        text=text_matrix,
-        texttemplate="%{text}",
-        textfont=dict(size=11, color="white", family="Arial"),
-        colorscale=colorscale,
-        zmin=0, zmax=1,
-        showscale=False,
-        hoverongaps=False,
-        xgap=2, ygap=2,
-    ))
-    fig.update_layout(
-        plot_bgcolor="#ffffff", paper_bgcolor="#f8f9fa",
-        font=dict(color="#1e293b", size=12),
-        margin=dict(l=230, r=40, t=60, b=20),
-        height=max(350, len(all_rows) * 32 + 100),
-        xaxis=dict(side="top", tickfont=dict(size=13, color="#1e293b"),
-                   gridcolor="rgba(0,0,0,0.05)"),
-        yaxis=dict(tickfont=dict(size=12, color="#1e293b"),
-                   autorange="reversed",
-                   gridcolor="rgba(0,0,0,0.05)"),
-    )
-    st.plotly_chart(fig, use_container_width=True)
-    # Sortable summary table
-    st.markdown("<div class='section-hdr'>Summary table - click column headers to sort</div>", unsafe_allow_html=True)
-    tbl_rows = []
-    for i, r in enumerate(all_rows):
-        fy = get_full_year(r)
-        mine_tag = " ★" if r["IsMine"] else ""
-        tbl_rows.append({
-            "Investor": r["Investor"],
-            "Strategy / Benchmark": r["Name"] + mine_tag,
-            "Type": r["Type"],
-            "Currency": r["Currency"],
-            "Full year": fmt_pct(fy) if pd.notna(fy) and not np.isnan(fy) else "-",
-            "_fy_sort": fy if pd.notna(fy) and not np.isnan(fy) else -999,
-        })
-    tbl_df = pd.DataFrame(tbl_rows).sort_values("_fy_sort", ascending=False)
-    st.dataframe(
-        tbl_df[["Investor","Strategy / Benchmark","Type","Currency","Full year"]],
-        use_container_width=True, hide_index=True
-    )
-
-# ══════════════════════════════════════════
 # TAB 3 - RANKING
 # ══════════════════════════════════════════
 def render_ranking(cfg, tabs_data, month_cols):
