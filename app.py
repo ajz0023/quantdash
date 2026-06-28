@@ -1054,47 +1054,13 @@ def render_portfolio(tabs_data):
             st.markdown(kpi_card_portfolio(name, kpis, sp500_ytd), unsafe_allow_html=True)
 
     # ── Growth Chart ──
-    st.markdown("<div class='section-hdr' style='margin-top:16px'>Portfolio value over time</div>",
-                unsafe_allow_html=True)
 
-    colors = {"AA": "#4f8ef7", "NJ": "#7c3aed", "Total": "#3fb950"}
-    fig = go.Figure()
-    for name, series in portfolios.items():
-        y_vals = [series.get(c, np.nan) for c in display_cols]
-        color  = colors.get(name, "#e6edf3")
-        fig.add_trace(go.Scatter(
-            x=display_cols, y=y_vals,
-            name=name,
-            line=dict(color=color, width=2.5),
-            fill="tozeroy" if name == "Total" else None,
-            fillcolor="rgba(63,185,80,0.05)" if name == "Total" else None,
-            hovertemplate=f"<b>{name}</b><br>%{{x}}: $%{{y:,.0f}}<extra></extra>",
-            mode="lines+markers",
-            marker=dict(size=5, color=color),
-        ))
-
-    # Build layout manually (avoid DARK conflict with yaxis override)
-    fig.update_layout(
-        plot_bgcolor="#ffffff", paper_bgcolor="#f8f9fa",
-        font=dict(color="#64748b", size=11),
-        height=320,
-        hovermode="x unified",
-        margin=dict(l=10, r=60, t=40, b=30),
-        xaxis=dict(gridcolor="#e2e8f0", showgrid=True, zeroline=False,
-                   ticks="", tickfont=dict(color="#64748b")),
-        yaxis=dict(gridcolor="#e2e8f0", showgrid=True, zeroline=False,
-                   tickprefix="$", tickformat=",.0f", side="right",
-                   tickfont=dict(color="#64748b")),
-        legend=dict(bgcolor="rgba(255,255,255,0.8)", font=dict(size=11),
-                    orientation="h", yanchor="bottom", y=1.02, xanchor="left", x=0),
-    )
-    st.plotly_chart(fig, use_container_width=True)
-
+    
     # ── Monthly Returns Table ──
     st.markdown("<div class='section-hdr'>Monthly breakdown</div>", unsafe_allow_html=True)
 
     tbl_rows = []
-    for i in range(len(display_cols) - 1, -1, -1):
+    for i in range(0, len(display_cols)):
         c = display_cols[i]
         prev_c = display_cols[i - 1] if i > 0 else None
         row = {"Month": c}
