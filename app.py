@@ -711,6 +711,11 @@ def render_heatmap(cfg, tabs_data, month_cols):
         is_mine_list.append(r["IsMine"])
         type_list.append(r["Type"])
         vals = [get_val(r, c) for c in col_labels] + [get_full_year(r)]
+        def safe_val(v):
+            if v is None: return np.nan
+            try: return float(v)
+            except: return np.nan
+        vals = [safe_val(v) for v in vals]
         matrix.append([v*100 if not np.isnan(v) else np.nan for v in vals])
         text_matrix.append([f"{v*100:+.1f}%" if not np.isnan(v) else "—" for v in vals])
 
@@ -718,7 +723,6 @@ def render_heatmap(cfg, tabs_data, month_cols):
 
     # Column-relative normalisation: rank within each column 0-1
     # So best in each year = 1 (green), worst = 0 (red), middle = 0.5 (yellow)
-    import numpy as np
     matrix_arr = np.array([[v if v is not None and not np.isnan(v) else np.nan
                             for v in row] for row in matrix], dtype=float)
 
