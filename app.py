@@ -569,7 +569,7 @@ def render_overview(cfg, tabs_data, month_cols):
             # Sort years descending
             pivot = pivot.sort_index(ascending=False)
             # Format as percentages for display
-            fmt_pivot = pivot.applymap(lambda v: f"{v*100:+.1f}%" if pd.notna(v) else "—")
+            fmt_pivot = pivot.map(lambda v: f"{v*100:+.1f}%" if pd.notna(v) else "—")
 
             # Color the cells using plotly heatmap
             fig_hm = go.Figure(go.Heatmap(
