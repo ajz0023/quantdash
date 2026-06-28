@@ -974,39 +974,37 @@ def render_heatmap(tabs_data):
         st.error("Could not load Monthly_Returns tab.")
         return
 
-    # ── Detect month columns (Col G onwards = index 6+) ──
+    # ── Detect month columns ──
     month_pattern = re.compile(
-        r'^(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)-\d{4}$',
+        r"^(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)-\d{4}$",
         re.IGNORECASE
     )
-    month_order = ['Jan','Feb','Mar','Apr','May','Jun',
-                   'Jul','Aug','Sep','Oct','Nov','Dec']
+    month_order = ["Jan","Feb","Mar","Apr","May","Jun",
+                   "Jul","Aug","Sep","Oct","Nov","Dec"]
 
     def sort_month_key(m):
-        parts = str(m).split('-')
+        parts = str(m).split("-")
         return (int(parts[1]), month_order.index(parts[0].capitalize()))
 
-    all_cols = list(monthly_df.columns)
+    all_cols  = list(monthly_df.columns)
     month_cols = sorted(
         [c for c in all_cols if month_pattern.match(str(c).strip())],
         key=sort_month_key
     )
 
     if not month_cols:
-        st.error(f"No month columns found. Columns: {all_cols[:10]}")
+        st.error(f"No month columns found. Columns detected: {all_cols[:10]}")
         return
 
-    # Debug info
-    
-    # ── Build FX lookup: month -> {AUDUSD, INRUSD} ──
+    # ── FX lookup ──
     fx_map = {}
     if not fx_df.empty and "Month" in fx_df.columns:
         for _, row in fx_df.iterrows():
             m = str(row.get("Month","")).strip()
             if m:
                 fx_map[m] = {
-                    "AUDUSD": float(row.get("AUDUSD", 1) or 1),
-                    "INRUSD": float(row.get("INRUSD", 1) or 1),
+                    "AUDUSD": float(row.get("AUDUSD",1) or 1),
+                    "INRUSD": float(row.get("INRUSD",1) or 1),
                 }
 
     def to_usd_rate(ccy, month):
@@ -1022,28 +1020,34 @@ def render_heatmap(tabs_data):
         except:
             return np.nan
 
-    # ── Get all calendar years in data ──
-    years_in_data = sorted(set(
-        int(m.split("-")[1]) for m in month_cols
-    ))
+    # ── Calendar years in data ──
+    years_in_data = sorted(set(int(m.split("-")[1]) for m in month_cols))
     cur_year = datetime.now().year
 
-    # ── Build one row per strategy/benchmark ──
+    # ── Build rows ──
     rows_out = []
     for _, row in monthly_df.iterrows():
-        name     = str(row.get(all_cols[0], "")).strip()   # col A
-        investor = str(row.get(all_cols[1], "")).strip()   # col B
-        currency = str(row.get(all_cols[3], "USD")).strip() # col D
-        row_type = str(row.get(all_cols[4], "")).strip()   # col E
+        name     = str(row.get(all_cols[0], "")).strip()
+        investor = str(row.get(all_cols[1], "")).strip()
+        # col D = index 3 (with or without IsMine column)
+        # Detect currency col by name
+        currency = "USD"
+        for col in all_cols:
+            if str(col).strip().lower() == "currency":
+                currency = str(row.get(col,"USD")).strip()
+                break
+        # Detect type col
+        row_type = ""
+        for col in all_cols:
+            if str(col).strip().lower() == "type":
+                row_type = str(row.get(col,"")).strip()
+                break
         is_bench = row_type.lower() == "benchmark"
-
         if not name or name == "nan":
             continue
+        inv_label = "Benchmark" if is_bench else (investor if investor and investor != "nan" else "-")
 
-        # Investor label
-        inv_label = "Benchmark" if is_bench else (investor if investor and investor != "nan" else "—")
-
-        # Parse all monthly returns into dict: month -> float (USD-converted)
+        # Monthly returns -> USD
         monthly_usd = {}
         for m in month_cols:
             v = parse_ret(row.get(m, ""))
@@ -1051,128 +1055,71 @@ def render_heatmap(tabs_data):
                 rate = to_usd_rate(currency, m)
                 monthly_usd[m] = v * rate
 
-        # Compute yearly compounded returns
+        # Yearly compounded
         yearly = {}
         for yr in years_in_data:
-            yr_months = [m for m in month_cols if m.endswith(f"-{yr}") and m in monthly_usd]
+            yr_months = sorted(
+                [m for m in month_cols if m.endswith(f"-{yr}") and m in monthly_usd],
+                key=sort_month_key
+            )
             if not yr_months:
                 yearly[yr] = np.nan
-                continue
-            compounded = 1.0
-            for m in sorted(yr_months, key=sort_month_key):
-                compounded *= (1 + monthly_usd[m])
-            ret = compounded - 1
-            # Label current year as YTD
-            yearly[yr] = ret
+            else:
+                comp = 1.0
+                for m in yr_months:
+                    comp *= (1 + monthly_usd[m])
+                yearly[yr] = comp - 1
 
         rows_out.append({
-            "Investor":  inv_label,
-            "Name":      name,
-            "Type":      "Benchmark" if is_bench else "Strategy",
-            "Currency":  currency,
-            "yearly":    yearly,
+            "Investor": inv_label,
+            "Name":     name,
+            "Type":     "Benchmark" if is_bench else "Strategy",
+            "yearly":   yearly,
         })
 
     if not rows_out:
         st.error("No rows found in Monthly_Returns tab.")
         return
 
-    # ── Sort by most recent year return (highest first) ──
-    latest_yr = years_in_data[-1] if years_in_data else cur_year
+    # ── Sort by most recent year descending ──
+    latest_yr = years_in_data[-1]
     rows_out.sort(
-        key=lambda r: r["yearly"].get(latest_yr, np.nan)
+        key=lambda r: r["yearly"].get(latest_yr, -999)
                       if not np.isnan(r["yearly"].get(latest_yr, np.nan)) else -999,
         reverse=True
     )
 
-    # ── Build display dataframe ──
-    year_cols = []
-    for yr in years_in_data:
-        label = f"{yr} (YTD)" if yr == cur_year else str(yr)
-        year_cols.append((yr, label))
+    # ── Year column labels ──
+    year_cols = [(yr, f"{yr} (YTD)" if yr == cur_year else str(yr))
+                 for yr in years_in_data]
+    yr_labels = [label for _, label in year_cols]
 
+    # ── Build display dataframe ──
     display_rows = []
     for r in rows_out:
-        dr = {
-            "Investor":  r["Investor"],
-            "Strategy / Benchmark": r["Name"],
-            "Type":      r["Type"],
-        }
+        dr = {"Investor": r["Investor"], "Strategy / Benchmark": r["Name"], "Type": r["Type"]}
         for yr, label in year_cols:
             v = r["yearly"].get(yr, np.nan)
-            dr[label] = round(v * 100, 1) if not np.isnan(v) else np.nan
+            dr[label] = round(v * 100, 1) if (not np.isnan(v)) else np.nan
         display_rows.append(dr)
 
     display_df = pd.DataFrame(display_rows)
 
-    # ── Sort state ──
-    yr_labels = [label for _, label in year_cols]
-    all_sortable = ["Investor", "Strategy / Benchmark", "Type"] + yr_labels
-
-    if "hm_sort_col" not in st.session_state:
-        st.session_state["hm_sort_col"] = yr_labels[-1] if yr_labels else "Investor"
-        st.session_state["hm_sort_asc"] = False
-
-    # ── Sort controls ──
-    st.markdown("<div class='section-hdr'>Overall Heatmap — yearly returns (USD)</div>",
-                unsafe_allow_html=True)
-
-    c1, c2 = st.columns([3, 2])
-    with c1:
-        sort_col = st.selectbox(
-            "Sort by", all_sortable,
-            index=all_sortable.index(st.session_state["hm_sort_col"])
-                  if st.session_state["hm_sort_col"] in all_sortable else len(all_sortable)-1,
-            key="hm_sort_col_sel"
-        )
-    with c2:
-        sort_dir = st.radio("Order", ["Descending ↓", "Ascending ↑"],
-                            horizontal=True, key="hm_sort_dir_sel")
-
-    sort_asc = sort_dir == "Ascending ↑"
-
-    # Apply sort
-    if sort_col in display_df.columns:
-        display_df = display_df.sort_values(
-            sort_col, ascending=sort_asc, na_position="last"
-        ).reset_index(drop=True)
-
-    # ── Build Plotly heatmap ──
-    # Use display_df columns directly as z_cols — guaranteed to match
-    numeric_cols = [c for c in display_df.columns
-                    if c not in ["Investor", "Strategy / Benchmark", "Type"]]
-
-    # Apply sort
-    if sort_col in display_df.columns:
-        display_df = display_df.sort_values(
-            sort_col, ascending=sort_asc, na_position="last"
-        ).reset_index(drop=True)
-
-    z_cols = numeric_cols  # e.g. ['2019','2020',...,'2025','2026 (YTD)']
-    z_matrix = display_df[z_cols].values.tolist()
+    # ── Build heatmap matrices ──
+    z_cols    = yr_labels
+    z_matrix  = display_df[z_cols].values.tolist()
     y_labels  = [f"{r['Investor']}  |  {r['Strategy / Benchmark']}"
                  for _, r in display_df.iterrows()]
-    text_matrix = []
-    for row_vals in z_matrix:
-        text_matrix.append([
-            f"{v:+.1f}%" if (v is not None and not np.isnan(float(v))) else "-"
-            for v in row_vals
-        ])
+    text_matrix = [
+        [f"{v:+.1f}%" if (v is not None and pd.notna(v)) else "-" for v in row]
+        for row in z_matrix
+    ]
 
-
-    # Absolute colour scale:
-    # Negative values -> red shades
-    # Zero -> orange
-    # Positive values -> green shades
-    # We map the actual % values linearly
-    # zmin/zmax determined from data
-    flat = [v for row in z_matrix for v in row
-            if v is not None and not (isinstance(v, float) and np.isnan(v))]
+    # ── Colour scale anchored at zero ──
+    flat = [float(v) for row in z_matrix for v in row
+            if v is not None and pd.notna(v)]
     zmin = min(flat) if flat else -30
     zmax = max(flat) if flat else 30
-
-    # Absolute colorscale anchored at zero
-    # Map 0 to the midpoint between zmin and zmax
     if zmin >= 0:
         zero_pos = 0.0
     elif zmax <= 0:
@@ -1180,32 +1127,28 @@ def render_heatmap(tabs_data):
     else:
         zero_pos = abs(zmin) / (abs(zmin) + abs(zmax))
 
-    # Build colorscale with zero=orange
     colorscale = []
     if zero_pos > 0:
-        # Red zone: zmin to 0
         colorscale += [
-            [0.0,               "#8B0000"],   # darkest red
-            [zero_pos * 0.5,    "#e74c3c"],   # red
-            [zero_pos * 0.85,   "#e67e00"],   # orange-red
-            [zero_pos,          "#FF8C00"],   # orange at zero
+            [0.0,             "#8B0000"],
+            [zero_pos * 0.5,  "#e74c3c"],
+            [zero_pos * 0.85, "#e67e00"],
+            [zero_pos,        "#FF8C00"],
         ]
     if zero_pos < 1:
-        # Green zone: 0 to zmax
         colorscale += [
-            [zero_pos,                        "#FF8C00"],   # orange at zero
-            [zero_pos + (1-zero_pos)*0.15,    "#85c91e"],   # yellow-green
-            [zero_pos + (1-zero_pos)*0.5,     "#27ae60"],   # green
-            [1.0,                             "#145a32"],   # darkest green
+            [zero_pos,                     "#FF8C00"],
+            [zero_pos+(1-zero_pos)*0.15,   "#85c91e"],
+            [zero_pos+(1-zero_pos)*0.5,    "#27ae60"],
+            [1.0,                          "#145a32"],
         ]
-
     if not colorscale:
         colorscale = [[0,"#8B0000"],[0.5,"#FF8C00"],[1,"#145a32"]]
 
+    # ── Plotly heatmap ──
     n_rows = len(display_df)
-    n_cols = len(z_cols)
     cell_h = 28
-    fig_h = max(400, n_rows * cell_h + 140)
+    fig_h  = max(400, n_rows * cell_h + 140)
 
     fig = go.Figure(go.Heatmap(
         z=z_matrix,
@@ -1215,58 +1158,42 @@ def render_heatmap(tabs_data):
         texttemplate="%{text}",
         textfont=dict(size=10, color="white", family="Arial"),
         colorscale=colorscale,
-        zmin=zmin,
-        zmax=zmax,
+        zmin=zmin, zmax=zmax,
         showscale=True,
         colorbar=dict(
-            title="%",
-            thickness=12,
-            len=0.7,
-            ticksuffix="%",
-            tickfont=dict(size=11, color="#1e293b"),
+            title="%", thickness=12, len=0.7,
+            ticksuffix="%", tickfont=dict(size=11, color="#1e293b"),
         ),
         hoverongaps=False,
         xgap=2, ygap=2,
     ))
 
+    # Key: use scaleanchor so columns shrink to fit, not get clipped
     fig.update_layout(
-        plot_bgcolor="#ffffff",
-        paper_bgcolor="#f8f9fa",
+        plot_bgcolor="#ffffff", paper_bgcolor="#f8f9fa",
         font=dict(color="#1e293b", size=11),
-        margin=dict(l=260, r=100, t=80, b=20),
+        margin=dict(l=10, r=100, t=80, b=20),
         height=fig_h,
         xaxis=dict(
             side="top",
-            tickfont=dict(size=12, color="#1e293b", family="Arial"),
-            gridcolor="rgba(0,0,0,0.05)",
+            tickfont=dict(size=12, color="#1e293b"),
             tickangle=0,
-            constrain="domain",
         ),
         yaxis=dict(
-            tickfont=dict(size=10, color="#1e293b", family="Arial"),
+            tickfont=dict(size=10, color="#1e293b"),
             autorange="reversed",
-            gridcolor="rgba(0,0,0,0.05)",
-            constrain="domain",
         ),
     )
-    # Use container width so all columns are always visible
     st.plotly_chart(fig, use_container_width=True)
 
-    # ── Sortable data table below heatmap ──
+    # ── Data table ──
     st.markdown("<div class='section-hdr'>Data table</div>", unsafe_allow_html=True)
-    st.caption("Sort using the controls above. Values shown as % (USD-converted).")
-
     fmt_df = display_df.copy()
     for col in yr_labels:
-        fmt_df[col] = fmt_df[col].apply(
-            lambda v: f"{v:+.1f}%" if pd.notna(v) else "-"
-        )
+        fmt_df[col] = fmt_df[col].apply(lambda v: f"{v:+.1f}%" if pd.notna(v) else "-")
     st.dataframe(fmt_df, use_container_width=True, hide_index=True)
 
 
-# ══════════════════════════════════════════
-# TAB 5 - SETUP
-# ══════════════════════════════════════════
 def render_setup():
     st.markdown("### Connect your Google Sheet")
     st.markdown("""
